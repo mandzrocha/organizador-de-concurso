@@ -13,6 +13,15 @@ export interface SchedulePreferences {
   includeCompletedSubjects: boolean  // se true: apenas revisão; se false: pula totalmente
   prioritizeOverdueReviews: boolean
   startDate?: string             // YYYY-MM-DD; padrão = hoje
+  // Padrões por atividade — quais dias da semana cada atividade pode acontecer
+  activityDays?: {
+    video?: number[]
+    reading?: number[]
+    exercises?: number[]
+    review?: number[]
+  }
+  // Preferências adicionais em linguagem natural para a IA
+  notes?: string
 }
 
 const DEFAULT_PREFS: SchedulePreferences = {
@@ -23,6 +32,8 @@ const DEFAULT_PREFS: SchedulePreferences = {
   includeCompletedSubjects: true,
   prioritizeOverdueReviews: true,
 }
+
+const DAY_NAMES = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 
 export async function POST(req: NextRequest) {
   try {
@@ -113,13 +124,24 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-flash-latest',
       generationConfig: { temperature: 0.3, maxOutputTokens: 8192, responseMimeType: 'application/json' },
     })
 
     const overdueIds = new Set(overdueReviews.map((r: any) => r.topic_id))
     const overdueStudyTopics = studyTopics.filter(t => overdueIds.has(t.id))
     const overdueReviewOnly = reviewOnlyTopics.filter(t => overdueIds.has(t.id))
+
+    // Build per-activity day restrictions
+    const activityDayLines: string[] = []
+    if (prefs.activityDays) {
+      for (const [activity, days] of Object.entries(prefs.activityDays)) {
+        if (days && days.length > 0 && days.length < 7) {
+          const dayNames = days.map(d => DAY_NAMES[d]).join(', ')
+          activityDayLines.push(`  - ${activity}: APENAS em ${dayNames}`)
+        }
+      }
+    }
 
     const prompt = `Você é um assistente de planejamento de estudos para concursos públicos brasileiros.
 
@@ -131,6 +153,8 @@ PREFERÊNCIAS DO USUÁRIO:
 - Foco: ${prefs.focus === 'primary' ? 'concurso principal' : prefs.focus === 'all' ? 'todos os concursos' : 'concursos selecionados'}
 - Priorizar revisões em atraso: ${prefs.prioritizeOverdueReviews ? 'SIM' : 'não'}
 - Matérias concluídas: ${prefs.includeCompletedSubjects ? 'incluir apenas como REVISÃO' : 'pular'}
+${activityDayLines.length > 0 ? `- Restrições POR ATIVIDADE (cada atividade só pode ser planejada nos dias listados):\n${activityDayLines.join('\n')}` : ''}
+${prefs.notes ? `\nObservações adicionais do usuário:\n"${prefs.notes}"` : ''}
 
 CONCURSOS:
 ${exams.filter((e: any) => targetExamIds.has(e.id)).map((e: any) => `- ${e.name}${e.is_primary ? ' (FOCO PRINCIPAL)' : ''}, prova: ${e.exam_date || 'sem data'}`).join('\n')}
@@ -171,7 +195,38 @@ Retorne APENAS um JSON válido:
     if (!jsonMatch) throw new Error('Resposta inválida da IA')
 
     const parsed = JSON.parse(jsonMatch[0])
-    return NextResponse.json(parsed)
+
+    // Validate and filter generated plans:
+    // - topic must exist in our candidate set
+    // - planned_date must be in allowed dates
+    // - activity_type must be valid
+    // - activity_type must match allowed days for that activity
+    const allowedTopicIds = new Set<string>([
+      ...studyTopics.map(t => t.id),
+      ...reviewOnlyTopics.map(t => t.id),
+    ])
+    const reviewOnlyIds = new Set(reviewOnlyTopics.map(t => t.id))
+    const allowedDates = new Set(dates)
+    const validActivities: Record<string, true> = { video: true, reading: true, exercises: true, review: true }
+
+    const filteredPlans = (parsed.plans || []).filter((p: any) => {
+      if (!allowedTopicIds.has(p.topic_id)) return false
+      if (!allowedDates.has(p.planned_date)) return false
+      if (!validActivities[p.activity_type]) return false
+      // review-only topics: only allow 'review'
+      if (reviewOnlyIds.has(p.topic_id) && p.activity_type !== 'review') return false
+      // per-activity day restrictions
+      if (prefs.activityDays) {
+        const allowed = (prefs.activityDays as any)[p.activity_type] as number[] | undefined
+        if (allowed && allowed.length > 0 && allowed.length < 7) {
+          const dayOfWeek = new Date(p.planned_date + 'T00:00').getDay()
+          if (!allowed.includes(dayOfWeek)) return false
+        }
+      }
+      return true
+    })
+
+    return NextResponse.json({ plans: filteredPlans, total: filteredPlans.length })
   } catch (e: any) {
     console.error('generate-schedule error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })

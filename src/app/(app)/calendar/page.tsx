@@ -374,6 +374,8 @@ const WEEK_DAYS = [
   { day: 0, label: 'Dom' },
 ]
 
+type ActivityKey = 'video' | 'reading' | 'exercises' | 'review'
+
 function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
   exams: { id: string; name: string; is_primary: boolean }[]
   generating: boolean
@@ -389,9 +391,24 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
   const [specificExamIds, setSpecificExamIds] = useState<string[]>([])
   const [includeCompleted, setIncludeCompleted] = useState(true)
   const [prioritizeOverdue, setPrioritizeOverdue] = useState(true)
+  const [customizeActivities, setCustomizeActivities] = useState(false)
+  const [activityDays, setActivityDays] = useState<Record<ActivityKey, number[]>>({
+    video:     [1, 2, 3, 4, 5],
+    reading:   [1, 2, 3, 4, 5],
+    exercises: [1, 2, 3, 4, 5, 6],
+    review:    [0, 6],
+  })
+  const [notes, setNotes] = useState('')
 
   function toggleDay(d: number) {
     setDaysPerWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+  }
+
+  function toggleActivityDay(act: ActivityKey, d: number) {
+    setActivityDays(prev => ({
+      ...prev,
+      [act]: prev[act].includes(d) ? prev[act].filter(x => x !== d) : [...prev[act], d].sort(),
+    }))
   }
 
   function toggleExam(id: string) {
@@ -404,10 +421,17 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
       specificExamIds: focus === 'specific' ? specificExamIds : undefined,
       includeCompletedSubjects: includeCompleted,
       prioritizeOverdueReviews: prioritizeOverdue,
+      activityDays: customizeActivities ? activityDays : undefined,
+      notes: notes.trim() || undefined,
     })
   }
 
-  const canAdvance = step === 1 ? daysPerWeek.length > 0 : step === 2 ? true : step === 3 ? (focus !== 'specific' || specificExamIds.length > 0) : true
+  const TOTAL_STEPS = 5
+  const canAdvance = step === 1 ? daysPerWeek.length > 0
+    : step === 2 ? true
+    : step === 3 ? (focus !== 'specific' || specificExamIds.length > 0)
+    : step === 4 ? true
+    : true
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -422,7 +446,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
           </div>
           {/* Step indicator */}
           <div className="flex gap-2 mt-4">
-            {[1, 2, 3, 4].map(s => (
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map(s => (
               <div key={s} className="flex-1 h-1 rounded-full" style={{ background: s <= step ? 'var(--primary)' : 'var(--border)' }} />
             ))}
           </div>
@@ -555,6 +579,74 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
 
           {step === 4 && (
             <>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Padrão por tipo de atividade</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Ex: revisão só no domingo, exercícios no fim de semana
+                </p>
+
+                <label className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
+                  <input
+                    type="checkbox"
+                    checked={customizeActivities}
+                    onChange={e => setCustomizeActivities(e.target.checked)}
+                    className="w-4 h-4"
+                    style={{ accentColor: 'var(--primary)' }}
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text)' }}>Definir dias específicos por atividade</span>
+                </label>
+
+                {customizeActivities && (
+                  <div className="space-y-3">
+                    {([
+                      { key: 'video' as ActivityKey,     icon: '🎬', label: 'Videoaula' },
+                      { key: 'reading' as ActivityKey,   icon: '📖', label: 'Leitura' },
+                      { key: 'exercises' as ActivityKey, icon: '✏️', label: 'Exercícios' },
+                      { key: 'review' as ActivityKey,    icon: '🔁', label: 'Revisão' },
+                    ]).map(a => (
+                      <div key={a.key}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span>{a.icon}</span>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{a.label}</span>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {WEEK_DAYS.map(d => (
+                            <button
+                              key={d.day}
+                              onClick={() => toggleActivityDay(a.key, d.day)}
+                              className="py-1.5 rounded-md text-[10px] font-medium border transition-all"
+                              style={{
+                                background: activityDays[a.key].includes(d.day) ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                                borderColor: activityDays[a.key].includes(d.day) ? 'var(--primary)' : 'var(--border)',
+                                color: activityDays[a.key].includes(d.day) ? 'var(--primary-soft-text)' : 'var(--text-subtle)',
+                              }}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-1 mt-4" style={{ color: 'var(--text)' }}>Observações (opcional)</p>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Conte para a IA qualquer preferência específica</p>
+                <textarea
+                  rows={3}
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Ex: não estudar matemática antes de dormir, focar em direito constitucional na segunda quinzena, simulado no último domingo..."
+                  style={{ resize: 'none' }}
+                />
+              </div>
+            </>
+          )}
+
+          {step === 5 && (
+            <>
               <p className="text-sm font-medium mb-2" style={{ color: 'var(--text)' }}>Ajustes finais</p>
               <label className="flex items-start gap-3 p-3 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
                 <input
@@ -589,6 +681,8 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
                 <p>· {daysPerWeek.length} dias/semana, {hoursPerDay}h por dia</p>
                 <p>· Cronograma de {horizonDays} dias</p>
                 <p>· Foco: {focus === 'primary' ? 'concurso principal' : focus === 'all' ? 'todos os concursos' : `${specificExamIds.length} concurso(s) selecionado(s)`}</p>
+                {customizeActivities && <p>· Padrões por atividade definidos</p>}
+                {notes.trim() && <p>· Observações enviadas para a IA</p>}
               </div>
 
               {error && (
@@ -608,7 +702,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
               Cancelar
             </button>
           )}
-          {step < 4 ? (
+          {step < TOTAL_STEPS ? (
             <button
               onClick={() => setStep(step + 1)}
               disabled={!canAdvance}
