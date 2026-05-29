@@ -430,6 +430,7 @@ function SubjectCard({
   onDragStart, onDragEnter, onDragEnd, onDrop, onMoveUp, onMoveDown,
   expanded, onToggle, onRefresh, onOpenLog,
   onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic, onToggleTopicComplete,
+  onReorderTopics, onMoveTopicInSubject,
 }: {
   subject: SubjectWithProgress
   index: number
