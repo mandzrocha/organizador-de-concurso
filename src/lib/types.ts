@@ -49,6 +49,8 @@ export interface StudyLog {
   studied_at: string
   notes: string | null
   duration_minutes: number | null
+  total_questions: number | null
+  correct_answers: number | null
   created_at: string
   topic?: Topic
 }
