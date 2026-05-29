@@ -17,6 +17,14 @@ export default function CalendarPage() {
   const [showAddModal, setShowAddModal] = useState<string | null>(null) // date string
   const [topics, setTopics] = useState<(Topic & { subject: Subject })[]>([])
   const [generating, setGenerating] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
+  const [genError, setGenError] = useState('')
+  const [exams, setExams] = useState<{ id: string; name: string; is_primary: boolean }[]>([])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    supabase.from('exams').select('id, name, is_primary').then(({ data }) => setExams(data || []))
+  }, [])
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -78,17 +86,28 @@ export default function CalendarPage() {
     loadPlans()
   }
 
-  async function generateWithAI() {
+  async function generateWithAI(prefs: any) {
     setGenerating(true)
+    setGenError('')
     try {
-      const res = await fetch('/api/generate-schedule', { method: 'POST' })
+      const res = await fetch('/api/generate-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      })
       const data = await res.json()
+      if (!res.ok) {
+        setGenError(data.error || 'Erro ao gerar cronograma')
+        setGenerating(false)
+        return
+      }
       if (data.plans) {
         await supabase.from('calendar_plans').insert(data.plans)
         loadPlans()
+        setShowWizard(false)
       }
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      setGenError(e.message || 'Erro inesperado')
     }
     setGenerating(false)
   }
@@ -99,20 +118,20 @@ export default function CalendarPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>←</button>
-          <h1 className="text-sm font-medium" style={{ color: '#e8e8f0' }}>
+          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>←</button>
+          <h1 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             {format(weekDays[0], "d MMM", { locale: ptBR })} — {format(weekDays[6], "d MMM yyyy", { locale: ptBR })}
           </h1>
-          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>→</button>
-          <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-2 py-1 rounded" style={{ color: '#6366f1' }}>
+          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>→</button>
+          <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-2 py-1 rounded" style={{ color: 'var(--primary-strong)' }}>
             Hoje
           </button>
         </div>
         <button
-          onClick={generateWithAI}
+          onClick={() => { setGenError(''); setShowWizard(true) }}
           disabled={generating}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ background: '#1e1e30', color: '#818cf8' }}
+          style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
         >
           {generating ? '⏳ Gerando...' : '✨ Gerar cronograma com IA'}
         </button>
@@ -126,15 +145,15 @@ export default function CalendarPage() {
           const today = isToday(day)
 
           return (
-            <div key={dayStr} className="min-h-48 rounded-xl border flex flex-col" style={{ background: '#17171f', borderColor: today ? '#6366f1' : '#2a2a38' }}>
+            <div key={dayStr} className="min-h-48 rounded-xl border flex flex-col" style={{ background: 'var(--surface)', borderColor: today ? 'var(--primary-strong)' : 'var(--border)' }}>
               {/* Day header */}
-              <div className="px-3 py-2 border-b" style={{ borderColor: '#2a2a38' }}>
-                <p className="text-xs" style={{ color: '#8888a0' }}>
+              <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {format(day, 'EEE', { locale: ptBR })}
                 </p>
                 <p
                   className="text-lg font-semibold leading-none mt-0.5"
-                  style={{ color: today ? '#818cf8' : '#e8e8f0' }}
+                  style={{ color: today ? 'var(--primary-soft-text)' : 'var(--text)' }}
                 >
                   {format(day, 'd')}
                 </p>
@@ -157,7 +176,7 @@ export default function CalendarPage() {
               <button
                 onClick={() => setShowAddModal(dayStr)}
                 className="m-2 mt-0 py-1 rounded-lg text-xs border border-dashed transition-colors hover:border-indigo-500"
-                style={{ borderColor: '#2a2a38', color: '#555568' }}
+                style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
               >
                 + planejar
               </button>
@@ -165,6 +184,17 @@ export default function CalendarPage() {
           )
         })}
       </div>
+
+      {/* AI Wizard */}
+      {showWizard && (
+        <ScheduleWizard
+          exams={exams}
+          generating={generating}
+          error={genError}
+          onClose={() => setShowWizard(false)}
+          onGenerate={generateWithAI}
+        />
+      )}
 
       {/* Add plan modal */}
       {showAddModal && (
@@ -204,29 +234,29 @@ function PlanItem({ plan, onDone, onSkip, onDelete }: {
     <div
       className="rounded-lg px-2 py-1.5 relative group cursor-pointer"
       style={{
-        background: isDone ? '#1a2a1a' : isSkipped ? '#1e1e1e' : '#1e1e2a',
+        background: isDone ? 'var(--success-soft)' : isSkipped ? 'var(--surface-hover)' : 'var(--surface-soft)',
         opacity: isSkipped ? 0.5 : 1,
       }}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
       {plan.original_date && (
-        <div className="text-xs mb-0.5" style={{ color: '#f97316' }}>↩ reagendado</div>
+        <div className="text-xs mb-0.5" style={{ color: 'var(--warning)' }}>↩ reagendado</div>
       )}
       <div className="flex items-start gap-1">
         <span className="text-xs mt-0.5">{ACTIVITY_ICONS[plan.activity_type]}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs leading-tight truncate" style={{ color: isDone ? '#4ade80' : '#c8c8e0', textDecoration: isDone ? 'line-through' : 'none' }}>
+          <p className="text-xs leading-tight truncate" style={{ color: isDone ? 'var(--success)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none' }}>
             {plan.topic?.name}
           </p>
-          <p className="text-xs" style={{ color: '#555568' }}>{plan.topic?.subject?.name}</p>
+          <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{plan.topic?.subject?.name}</p>
         </div>
       </div>
       {showActions && !isDone && (
         <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg" style={{ background: 'rgba(15,15,19,0.9)' }}>
-          <button onClick={onDone} className="text-xs px-2 py-1 rounded font-medium" style={{ background: '#1a2a1a', color: '#4ade80' }}>✓</button>
-          <button onClick={onSkip} className="text-xs px-2 py-1 rounded" style={{ background: '#2a2010', color: '#f97316' }}>↩</button>
-          <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: '#2a1010', color: '#f87171' }}>✕</button>
+          <button onClick={onDone} className="text-xs px-2 py-1 rounded font-medium" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>✓</button>
+          <button onClick={onSkip} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>↩</button>
+          <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>✕</button>
         </div>
       )}
     </div>
@@ -261,40 +291,40 @@ function AddPlanModal({ date, topics, onClose, onSave }: {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-2xl border p-6 space-y-4" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+      <div className="w-full max-w-md rounded-2xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium" style={{ color: '#e8e8f0' }}>
+          <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             Planejar para {format(parsedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </h2>
-          <button onClick={onClose} style={{ color: '#555568' }}>✕</button>
+          <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}>✕</button>
         </div>
 
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: '#8888a0' }}>Tópico</label>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Tópico</label>
           <input type="text" placeholder="Buscar tópico..." value={search} onChange={e => setSearch(e.target.value)} className="mb-2" />
-          <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border" style={{ borderColor: '#2a2a38' }}>
+          <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border" style={{ borderColor: 'var(--border)' }}>
             {filtered.map(topic => (
               <button
                 key={topic.id}
                 onClick={() => setTopicId(topic.id)}
                 className="w-full text-left px-3 py-2 text-sm transition-colors"
                 style={{
-                  background: topicId === topic.id ? '#1e1e30' : 'transparent',
-                  color: topicId === topic.id ? '#818cf8' : '#c8c8e0',
+                  background: topicId === topic.id ? 'var(--primary-soft)' : 'transparent',
+                  color: topicId === topic.id ? 'var(--primary-soft-text)' : 'var(--text)',
                 }}
               >
                 <span>{topic.name}</span>
-                <span className="text-xs ml-2" style={{ color: '#555568' }}>{topic.subject?.name}</span>
+                <span className="text-xs ml-2" style={{ color: 'var(--text-subtle)' }}>{topic.subject?.name}</span>
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-3 py-4 text-xs text-center" style={{ color: '#555568' }}>Nenhum tópico encontrado</p>
+              <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico encontrado</p>
             )}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: '#8888a0' }}>Atividade</label>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Atividade</label>
           <div className="flex gap-2 flex-wrap">
             {(['video', 'exercises', 'reading', 'review'] as ActivityType[]).map(act => (
               <button
@@ -302,9 +332,9 @@ function AddPlanModal({ date, topics, onClose, onSave }: {
                 onClick={() => setActivity(act)}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all"
                 style={{
-                  background: activity === act ? '#1e1e30' : 'transparent',
-                  borderColor: activity === act ? '#6366f1' : '#2a2a38',
-                  color: activity === act ? '#818cf8' : '#8888a0',
+                  background: activity === act ? 'var(--primary-soft)' : 'transparent',
+                  borderColor: activity === act ? 'var(--primary-strong)' : 'var(--border)',
+                  color: activity === act ? 'var(--primary-soft-text)' : 'var(--text-muted)',
                 }}
               >
                 {ACTIVITY_ICONS[act]} {ACTIVITY_LABELS[act]}
@@ -314,20 +344,289 @@ function AddPlanModal({ date, topics, onClose, onSave }: {
         </div>
 
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: '#8888a0' }}>Observações (opcional)</label>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Observações (opcional)</label>
           <input type="text" placeholder="Ex: caps. 1-3 do livro X" value={notes} onChange={e => setNotes(e.target.value)} />
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
           <button
             onClick={handleSave}
             disabled={!topicId || saving}
             className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
-            style={{ background: '#6366f1', color: '#fff' }}
+            style={{ background: 'var(--primary-strong)', color: '#fff' }}
           >
             {saving ? 'Salvando...' : 'Adicionar ao calendário'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const WEEK_DAYS = [
+  { day: 1, label: 'Seg' },
+  { day: 2, label: 'Ter' },
+  { day: 3, label: 'Qua' },
+  { day: 4, label: 'Qui' },
+  { day: 5, label: 'Sex' },
+  { day: 6, label: 'Sáb' },
+  { day: 0, label: 'Dom' },
+]
+
+function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
+  exams: { id: string; name: string; is_primary: boolean }[]
+  generating: boolean
+  error: string
+  onClose: () => void
+  onGenerate: (prefs: any) => void
+}) {
+  const [step, setStep] = useState(1)
+  const [daysPerWeek, setDaysPerWeek] = useState<number[]>([1, 2, 3, 4, 5])
+  const [hoursPerDay, setHoursPerDay] = useState(3)
+  const [horizonDays, setHorizonDays] = useState(14)
+  const [focus, setFocus] = useState<'primary' | 'all' | 'specific'>('primary')
+  const [specificExamIds, setSpecificExamIds] = useState<string[]>([])
+  const [includeCompleted, setIncludeCompleted] = useState(true)
+  const [prioritizeOverdue, setPrioritizeOverdue] = useState(true)
+
+  function toggleDay(d: number) {
+    setDaysPerWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+  }
+
+  function toggleExam(id: string) {
+    setSpecificExamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  function submit() {
+    onGenerate({
+      daysPerWeek, hoursPerDay, horizonDays, focus,
+      specificExamIds: focus === 'specific' ? specificExamIds : undefined,
+      includeCompletedSubjects: includeCompleted,
+      prioritizeOverdueReviews: prioritizeOverdue,
+    })
+  }
+
+  const canAdvance = step === 1 ? daysPerWeek.length > 0 : step === 2 ? true : step === 3 ? (focus !== 'specific' || specificExamIds.length > 0) : true
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-medium" style={{ color: 'var(--primary)' }}>✨ Gerar cronograma com IA</p>
+              <h2 className="text-base font-semibold mt-0.5" style={{ color: 'var(--text)' }}>Como você quer estudar?</h2>
+            </div>
+            <button onClick={onClose} className="text-lg" style={{ color: 'var(--text-subtle)' }}>✕</button>
+          </div>
+          {/* Step indicator */}
+          <div className="flex gap-2 mt-4">
+            {[1, 2, 3, 4].map(s => (
+              <div key={s} className="flex-1 h-1 rounded-full" style={{ background: s <= step ? 'var(--primary)' : 'var(--border)' }} />
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4 min-h-[280px]">
+          {step === 1 && (
+            <>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Quais dias da semana você estuda?</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Selecione um ou mais dias</p>
+                <div className="grid grid-cols-7 gap-2">
+                  {WEEK_DAYS.map(d => (
+                    <button
+                      key={d.day}
+                      onClick={() => toggleDay(d.day)}
+                      className="py-2 rounded-lg text-xs font-medium transition-all border"
+                      style={{
+                        background: daysPerWeek.includes(d.day) ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                        borderColor: daysPerWeek.includes(d.day) ? 'var(--primary)' : 'var(--border)',
+                        color: daysPerWeek.includes(d.day) ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Quantas horas por dia em média?</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>{hoursPerDay}h por dia · ~{Math.max(2, Math.round(hoursPerDay * 2))} atividades</p>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={hoursPerDay}
+                  onChange={e => setHoursPerDay(parseInt(e.target.value))}
+                  className="w-full"
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
+                  <span>1h</span><span>5h</span><span>10h</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Período do cronograma</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Por quantos dias gerar?</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[7, 14, 30, 60].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setHorizonDays(n)}
+                      className="py-3 rounded-lg text-sm font-medium transition-all border"
+                      style={{
+                        background: horizonDays === n ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                        borderColor: horizonDays === n ? 'var(--primary)' : 'var(--border)',
+                        color: horizonDays === n ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {n} dias
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={horizonDays}
+                    onChange={e => setHorizonDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
+                    className="w-full"
+                    placeholder="Ou digite o número de dias"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Foco do cronograma</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Quais concursos incluir?</p>
+                <div className="space-y-2">
+                  {[
+                    { value: 'primary' as const, label: 'Apenas concurso foco principal', desc: 'Recomendado se você tem prioridade clara' },
+                    { value: 'all' as const, label: 'Todos os concursos cadastrados', desc: 'Distribui entre todos' },
+                    { value: 'specific' as const, label: 'Concursos específicos', desc: 'Você escolhe quais' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setFocus(opt.value)}
+                      className="w-full text-left px-4 py-3 rounded-lg border transition-all"
+                      style={{
+                        background: focus === opt.value ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                        borderColor: focus === opt.value ? 'var(--primary)' : 'var(--border)',
+                      }}
+                    >
+                      <p className="text-sm font-medium" style={{ color: focus === opt.value ? 'var(--primary-soft-text)' : 'var(--text)' }}>{opt.label}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {focus === 'specific' && (
+                  <div className="mt-3 space-y-1">
+                    {exams.map(ex => (
+                      <label key={ex.id} className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
+                        <input
+                          type="checkbox"
+                          checked={specificExamIds.includes(ex.id)}
+                          onChange={() => toggleExam(ex.id)}
+                          className="w-4 h-4"
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{ex.name}</span>
+                        {ex.is_primary && <span className="text-xs" style={{ color: 'var(--primary)' }}>★</span>}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text)' }}>Ajustes finais</p>
+              <label className="flex items-start gap-3 p-3 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
+                <input
+                  type="checkbox"
+                  checked={prioritizeOverdue}
+                  onChange={e => setPrioritizeOverdue(e.target.checked)}
+                  className="w-4 h-4 mt-0.5"
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Priorizar revisões em atraso</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Coloca os tópicos atrasados nos primeiros dias do cronograma</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
+                <input
+                  type="checkbox"
+                  checked={includeCompleted}
+                  onChange={e => setIncludeCompleted(e.target.checked)}
+                  className="w-4 h-4 mt-0.5"
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Incluir matérias concluídas (apenas revisão)</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Adiciona revisões espaçadas para manter o conhecimento ativo</p>
+                </div>
+              </label>
+
+              <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                <p className="font-medium mb-1">📋 Resumo</p>
+                <p>· {daysPerWeek.length} dias/semana, {hoursPerDay}h por dia</p>
+                <p>· Cronograma de {horizonDays} dias</p>
+                <p>· Foco: {focus === 'primary' ? 'concurso principal' : focus === 'all' ? 'todos os concursos' : `${specificExamIds.length} concurso(s) selecionado(s)`}</p>
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-lg text-xs" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>{error}</div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex gap-3">
+          {step > 1 ? (
+            <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+              ← Voltar
+            </button>
+          ) : (
+            <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+              Cancelar
+            </button>
+          )}
+          {step < 4 ? (
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={!canAdvance}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
+            >
+              Próximo →
+            </button>
+          ) : (
+            <button
+              onClick={submit}
+              disabled={generating}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
+            >
+              {generating ? '⏳ Gerando...' : '✨ Gerar cronograma'}
+            </button>
+          )}
         </div>
       </div>
     </div>

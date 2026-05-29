@@ -69,31 +69,31 @@ export default function ReviewsPage() {
     loadReviews()
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: '#8888a0' }}><p className="text-sm">Carregando...</p></div>
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}><p className="text-sm">Carregando...</p></div>
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-semibold" style={{ color: '#e8e8f0' }}>Revisões</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#8888a0' }}>Sistema de repetição espaçada (SM-2)</p>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Revisões</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Sistema de repetição espaçada (SM-2)</p>
       </div>
 
       {/* Due reviews */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-sm font-medium" style={{ color: '#8888a0' }}>Para revisar hoje</h2>
+          <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Para revisar hoje</h2>
           {reviews.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: '#2a1a1a', color: '#f87171' }}>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
               {reviews.length}
             </span>
           )}
         </div>
 
         {reviews.length === 0 ? (
-          <div className="rounded-xl border p-8 text-center" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+          <div className="rounded-xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div className="text-3xl mb-2">🎉</div>
-            <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>Nenhuma revisão pendente!</p>
-            <p className="text-xs mt-1" style={{ color: '#8888a0' }}>Você está em dia com suas revisões.</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Nenhuma revisão pendente!</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Você está em dia com suas revisões.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -103,20 +103,20 @@ export default function ReviewsPage() {
                 <div
                   key={rev.id}
                   className="rounded-xl border flex items-center gap-4 px-4 py-3"
-                  style={{ background: '#17171f', borderColor: doing?.id === rev.id ? '#6366f1' : '#2a2a38' }}
+                  style={{ background: 'var(--surface)', borderColor: doing?.id === rev.id ? 'var(--primary-strong)' : 'var(--border)' }}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>{rev.topic?.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: '#8888a0' }}>
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                       <span>{rev.topic?.subject?.name}</span>
-                      {overdue > 0 && <span style={{ color: '#f87171' }}>· {overdue}d de atraso</span>}
+                      {overdue > 0 && <span style={{ color: 'var(--danger)' }}>· {overdue}d de atraso</span>}
                       <span>· {rev.repetitions} repetições</span>
                     </div>
                   </div>
                   <button
                     onClick={() => setDoing(rev)}
                     className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                    style={{ background: '#1e1e30', color: '#818cf8' }}
+                    style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
                   >
                     Revisar
                   </button>
@@ -130,15 +130,15 @@ export default function ReviewsPage() {
       {/* Upcoming */}
       {upcoming.length > 0 && (
         <section>
-          <h2 className="text-sm font-medium mb-3" style={{ color: '#8888a0' }}>Próximos 7 dias</h2>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>Próximos 7 dias</h2>
           <div className="space-y-2">
             {upcoming.map(rev => (
-              <div key={rev.id} className="rounded-xl border flex items-center gap-4 px-4 py-3" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+              <div key={rev.id} className="rounded-xl border flex items-center gap-4 px-4 py-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm" style={{ color: '#c8c8e0' }}>{rev.topic?.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8888a0' }}>{rev.topic?.subject?.name}</p>
+                  <p className="text-sm" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{rev.topic?.subject?.name}</p>
                 </div>
-                <p className="text-xs flex-shrink-0" style={{ color: '#8888a0' }}>
+                <p className="text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
                   {rev.next_review ? format(parseISO(rev.next_review), "d MMM", { locale: ptBR }) : '—'}
                 </p>
               </div>
@@ -150,17 +150,17 @@ export default function ReviewsPage() {
       {/* Review modal */}
       {doing && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.8)' }}>
-          <div className="w-full max-w-md rounded-2xl border p-6 space-y-5" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+          <div className="w-full max-w-md rounded-2xl border p-6 space-y-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div>
-              <p className="text-xs mb-1" style={{ color: '#8888a0' }}>{doing.topic?.subject?.name}</p>
-              <h2 className="text-lg font-semibold" style={{ color: '#e8e8f0' }}>{doing.topic?.name}</h2>
-              <p className="text-xs mt-1" style={{ color: '#555568' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{doing.topic?.subject?.name}</p>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{doing.topic?.name}</h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
                 Última revisão: {doing.last_reviewed ? format(parseISO(doing.last_reviewed), "d 'de' MMM", { locale: ptBR }) : 'Nunca'}
                 · Intervalo atual: {doing.interval_days} dias
               </p>
             </div>
 
-            <div className="p-4 rounded-xl text-sm" style={{ background: '#1e1e28', color: '#8888a0' }}>
+            <div className="p-4 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
               Avalie sua memorização deste tópico:
             </div>
 
@@ -171,18 +171,18 @@ export default function ReviewsPage() {
                   onClick={() => !saving && submitReview(opt.value)}
                   disabled={saving}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all hover:border-opacity-80 disabled:opacity-50"
-                  style={{ borderColor: '#2a2a38', background: '#1e1e28' }}
+                  style={{ borderColor: 'var(--border)', background: 'var(--surface-hover)' }}
                 >
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: opt.color }} />
                   <div>
-                    <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>{opt.label}</p>
-                    <p className="text-xs" style={{ color: '#8888a0' }}>{opt.desc}</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{opt.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
                   </div>
                 </button>
               ))}
             </div>
 
-            <button onClick={() => setDoing(null)} className="w-full text-sm" style={{ color: '#555568' }}>Cancelar</button>
+            <button onClick={() => setDoing(null)} className="w-full text-sm" style={{ color: 'var(--text-subtle)' }}>Cancelar</button>
           </div>
         </div>
       )}

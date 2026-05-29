@@ -183,39 +183,39 @@ export default function NewExamPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold" style={{ color: '#e8e8f0' }}>Novo Concurso</h1>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Novo Concurso</h1>
         <div className="flex items-center gap-2 mt-3">
           {(['info', 'edital', 'review'] as const).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
               <div
                 className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
                 style={{
-                  background: step === s ? '#6366f1' : ['info', 'edital', 'review'].indexOf(step) > i ? '#1e1e30' : '#1e1e28',
-                  color: step === s ? '#fff' : '#8888a0',
+                  background: step === s ? 'var(--primary-strong)' : ['info', 'edital', 'review'].indexOf(step) > i ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                  color: step === s ? '#fff' : 'var(--text-muted)',
                 }}
               >
                 {['info', 'edital', 'review'].indexOf(step) > i ? '✓' : i + 1}
               </div>
-              <span className="text-xs" style={{ color: step === s ? '#818cf8' : '#555568' }}>
+              <span className="text-xs" style={{ color: step === s ? 'var(--primary-soft-text)' : 'var(--text-subtle)' }}>
                 {s === 'info' ? 'Informações' : s === 'edital' ? 'Edital' : 'Revisar'}
               </span>
-              {i < 2 && <span style={{ color: '#2a2a38' }}>—</span>}
+              {i < 2 && <span style={{ color: 'var(--border)' }}>—</span>}
             </div>
           ))}
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#2a1a1a', color: '#f87171' }}>
+        <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
 
       {/* Step 1: Info */}
       {step === 'info' && (
-        <div className="rounded-xl border p-6 space-y-4" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+        <div className="rounded-xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Nome do concurso *</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Nome do concurso *</label>
             <input
               type="text"
               placeholder="Ex: TJSP — Escrevente Técnico Judiciário"
@@ -224,7 +224,7 @@ export default function NewExamPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Órgão / Banca</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Órgão / Banca</label>
             <input
               type="text"
               placeholder="Ex: TJSP, TRF1, Vunesp..."
@@ -233,26 +233,26 @@ export default function NewExamPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Data da prova</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Data da prova</label>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <div
                 onClick={() => setExamInfo(p => ({ ...p, pre_edital: !p.pre_edital, exam_date: !p.pre_edital ? '' : p.exam_date }))}
                 className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
-                style={{ background: examInfo.pre_edital ? '#f97316' : '#2a2a38' }}
+                style={{ background: examInfo.pre_edital ? 'var(--warning)' : 'var(--border)' }}
               >
                 <div
                   className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
                   style={{ left: examInfo.pre_edital ? '17px' : '2px' }}
                 />
               </div>
-              <span className="text-xs" style={{ color: examInfo.pre_edital ? '#f97316' : '#8888a0' }}>
+              <span className="text-xs" style={{ color: examInfo.pre_edital ? 'var(--warning)' : 'var(--text-muted)' }}>
                 Ainda não tem edital publicado — estudando com edital anterior
               </span>
             </label>
             {examInfo.pre_edital ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#1e1808', border: '1px solid #3a2e10' }}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--warning-soft)', border: '1px solid #3a2e10' }}>
                 <span className="text-sm">📂</span>
-                <p className="text-xs" style={{ color: '#c8a040' }}>
+                <p className="text-xs" style={{ color: 'var(--warning)' }}>
                   Sem data definida. Você pode adicionar a data assim que o edital for publicado.
                 </p>
               </div>
@@ -265,7 +265,7 @@ export default function NewExamPage() {
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Descrição (opcional)</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Descrição (opcional)</label>
             <textarea
               rows={2}
               placeholder="Cargo, observações..."
@@ -278,14 +278,14 @@ export default function NewExamPage() {
             <div
               onClick={() => setExamInfo(p => ({ ...p, is_primary: !p.is_primary }))}
               className="w-9 h-5 rounded-full relative transition-colors"
-              style={{ background: examInfo.is_primary ? '#6366f1' : '#2a2a38' }}
+              style={{ background: examInfo.is_primary ? 'var(--primary-strong)' : 'var(--border)' }}
             >
               <div
                 className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
                 style={{ left: examInfo.is_primary ? '18px' : '2px' }}
               />
             </div>
-            <span className="text-sm" style={{ color: '#e8e8f0' }}>Definir como concurso foco principal</span>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>Definir como concurso foco principal</span>
           </label>
 
           <div className="flex gap-3 pt-2">
@@ -293,7 +293,7 @@ export default function NewExamPage() {
               disabled={!examInfo.name.trim()}
               onClick={() => setStep('edital')}
               className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
-              style={{ background: '#6366f1', color: '#fff' }}
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
               Próximo →
             </button>
@@ -303,10 +303,10 @@ export default function NewExamPage() {
 
       {/* Step 2: Upload Edital */}
       {step === 'edital' && (
-        <div className="rounded-xl border p-6 space-y-5" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+        <div className="rounded-xl border p-6 space-y-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div>
-            <h2 className="text-sm font-medium mb-1" style={{ color: '#e8e8f0' }}>Edital — PDF ou Fotos</h2>
-            <p className="text-xs" style={{ color: '#8888a0' }}>
+            <h2 className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Edital — PDF ou Fotos</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Envie o PDF do edital <strong style={{ color: '#c8c8e0' }}>ou tire fotos</strong> das páginas com as matérias. A IA extrai tudo automaticamente.
             </p>
           </div>
@@ -317,7 +317,7 @@ export default function NewExamPage() {
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files) }}
             className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-indigo-500"
-            style={{ borderColor: files.length ? '#6366f1' : '#2a2a38' }}
+            style={{ borderColor: files.length ? 'var(--primary-strong)' : 'var(--border)' }}
           >
             <input
               ref={fileRef}
@@ -331,7 +331,7 @@ export default function NewExamPage() {
             <p className="text-sm" style={{ color: '#c8c8e0' }}>
               Clique ou arraste arquivos aqui
             </p>
-            <p className="text-xs mt-1" style={{ color: '#555568' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
               PDF (1 arquivo) · Fotos JPG/PNG/WebP (várias) · Máx 10MB por arquivo
             </p>
           </div>
@@ -343,17 +343,17 @@ export default function NewExamPage() {
                 const isImage = ACCEPTED_IMAGE_TYPES.includes(f.type)
                 const url = isImage ? URL.createObjectURL(f) : null
                 return (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ background: '#1a1a24', borderColor: '#2a2a38' }}>
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ background: 'var(--surface-soft)', borderColor: 'var(--border)' }}>
                     {url ? (
                       <img src={url} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0 text-xl" style={{ background: '#1e1e30' }}>📄</div>
+                      <div className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0 text-xl" style={{ background: 'var(--primary-soft)' }}>📄</div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate" style={{ color: '#e8e8f0' }}>{f.name}</p>
-                      <p className="text-xs" style={{ color: '#555568' }}>{(f.size / 1024 / 1024).toFixed(2)} MB</p>
+                      <p className="text-sm truncate" style={{ color: 'var(--text)' }}>{f.name}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{(f.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
-                    <button onClick={() => removeFile(i)} className="text-sm flex-shrink-0" style={{ color: '#555568' }}>✕</button>
+                    <button onClick={() => removeFile(i)} className="text-sm flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>✕</button>
                   </div>
                 )
               })}
@@ -361,7 +361,7 @@ export default function NewExamPage() {
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="w-full py-2 rounded-lg text-xs border border-dashed"
-                  style={{ borderColor: '#2a2a38', color: '#6366f1' }}
+                  style={{ borderColor: 'var(--border)', color: 'var(--primary-strong)' }}
                 >
                   + Adicionar mais fotos
                 </button>
@@ -370,7 +370,7 @@ export default function NewExamPage() {
           )}
 
           <div className="flex gap-3">
-            <button onClick={() => setStep('info')} className="px-4 py-2.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>
+            <button onClick={() => setStep('info')} className="px-4 py-2.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
               ← Voltar
             </button>
             {files.length > 0 && (
@@ -378,7 +378,7 @@ export default function NewExamPage() {
                 onClick={extractFromFiles}
                 disabled={extracting}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60"
-                style={{ background: '#6366f1', color: '#fff' }}
+                style={{ background: 'var(--primary-strong)', color: '#fff' }}
               >
                 {extracting
                   ? `⏳ Analisando ${isPdf ? 'PDF' : `${files.length} foto${files.length > 1 ? 's' : ''}`}...`
@@ -389,7 +389,7 @@ export default function NewExamPage() {
               onClick={saveExamWithoutEdital}
               disabled={saving}
               className="px-4 py-2.5 rounded-lg text-sm border disabled:opacity-40"
-              style={{ borderColor: '#2a2a38', color: '#8888a0' }}
+              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
             >
               Pular →
             </button>
@@ -400,24 +400,24 @@ export default function NewExamPage() {
       {/* Step 3: Review extracted subjects */}
       {step === 'review' && (
         <div className="space-y-4">
-          <div className="rounded-xl border p-5" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
-            <h2 className="text-sm font-medium mb-1" style={{ color: '#e8e8f0' }}>Matérias extraídas do edital</h2>
-            <p className="text-xs" style={{ color: '#8888a0' }}>
+          <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h2 className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Matérias extraídas do edital</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Revise e edite as matérias e tópicos antes de salvar. Matérias marcadas como "compartilhadas" são reaproveitadas entre concursos.
             </p>
           </div>
 
           {subjects.map((sub, si) => (
-            <div key={si} className="rounded-xl border overflow-hidden" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
-              <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: '#2a2a38' }}>
+            <div key={si} className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sub.color }} />
                 <input
                   className="flex-1 text-sm font-medium bg-transparent border-none outline-none p-0"
-                  style={{ color: '#e8e8f0' }}
+                  style={{ color: 'var(--text)' }}
                   value={sub.name}
                   onChange={e => setSubjects(prev => prev.map((s, i) => i === si ? { ...s, name: e.target.value } : s))}
                 />
-                <label className="flex items-center gap-1.5 text-xs flex-shrink-0" style={{ color: '#8888a0' }}>
+                <label className="flex items-center gap-1.5 text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
                   <input
                     type="checkbox"
                     checked={sub.isShared}
@@ -429,7 +429,7 @@ export default function NewExamPage() {
                 <button
                   onClick={() => setSubjects(prev => prev.filter((_, i) => i !== si))}
                   className="text-sm hover:text-red-400 transition-colors"
-                  style={{ color: '#555568' }}
+                  style={{ color: 'var(--text-subtle)' }}
                 >
                   ✕
                 </button>
@@ -437,10 +437,10 @@ export default function NewExamPage() {
               <div className="p-3 space-y-1">
                 {sub.topics.map((topic, ti) => (
                   <div key={ti} className="flex items-center gap-2">
-                    <span className="text-xs w-4 text-center flex-shrink-0" style={{ color: '#555568' }}>{ti + 1}</span>
+                    <span className="text-xs w-4 text-center flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>{ti + 1}</span>
                     <input
                       className="flex-1 text-xs bg-transparent border-none outline-none p-1 rounded"
-                      style={{ color: '#c0c0d0' }}
+                      style={{ color: 'var(--text)' }}
                       value={topic}
                       onChange={e => setSubjects(prev => prev.map((s, i) => i === si
                         ? { ...s, topics: s.topics.map((t, j) => j === ti ? e.target.value : t) }
@@ -453,7 +453,7 @@ export default function NewExamPage() {
                         : s
                       ))}
                       className="text-xs hover:text-red-400 transition-colors flex-shrink-0"
-                      style={{ color: '#555568' }}
+                      style={{ color: 'var(--text-subtle)' }}
                     >
                       ✕
                     </button>
@@ -465,7 +465,7 @@ export default function NewExamPage() {
                     : s
                   ))}
                   className="text-xs mt-1 px-2 py-1 rounded"
-                  style={{ color: '#6366f1' }}
+                  style={{ color: 'var(--primary-strong)' }}
                 >
                   + Adicionar tópico
                 </button>
@@ -476,20 +476,20 @@ export default function NewExamPage() {
           <button
             onClick={() => setSubjects(prev => [...prev, { name: 'Nova matéria', topics: [], isShared: true, color: SUBJECT_COLORS[prev.length % SUBJECT_COLORS.length] }])}
             className="w-full py-2.5 rounded-xl text-sm border border-dashed transition-colors"
-            style={{ borderColor: '#2a2a38', color: '#6366f1' }}
+            style={{ borderColor: 'var(--border)', color: 'var(--primary-strong)' }}
           >
             + Adicionar matéria
           </button>
 
           <div className="flex gap-3">
-            <button onClick={() => setStep('edital')} className="px-4 py-2.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>
+            <button onClick={() => setStep('edital')} className="px-4 py-2.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
               ← Voltar
             </button>
             <button
               onClick={saveExam}
               disabled={saving || subjects.length === 0}
               className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
-              style={{ background: '#6366f1', color: '#fff' }}
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
               {saving ? 'Salvando...' : `Salvar concurso (${subjects.length} matérias)`}
             </button>

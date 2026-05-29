@@ -155,16 +155,16 @@ export default function EditExamPage() {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: '#8888a0' }}><p className="text-sm">Carregando...</p></div>
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}><p className="text-sm">Carregando...</p></div>
   if (!exam) {
     // Not configured or not found — show shell for preview
     if (!isSupabaseConfigured()) {
       return (
         <div className="p-6 max-w-3xl mx-auto space-y-5">
           <div>
-            <Link href="/exams" className="text-xs block mb-2" style={{ color: '#8888a0' }}>← Voltar</Link>
-            <h1 className="text-xl font-semibold" style={{ color: '#e8e8f0' }}>Editar concurso</h1>
-            <p className="text-xs mt-1" style={{ color: '#f97316' }}>Configure o Supabase para usar esta página.</p>
+            <Link href="/exams" className="text-xs block mb-2" style={{ color: 'var(--text-muted)' }}>← Voltar</Link>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Editar concurso</h1>
+            <p className="text-xs mt-1" style={{ color: 'var(--warning)' }}>Configure o Supabase para usar esta página.</p>
           </div>
         </div>
       )
@@ -176,21 +176,21 @@ export default function EditExamPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div>
-        <Link href={`/exams/${id}`} className="text-xs block mb-2" style={{ color: '#8888a0' }}>← Voltar ao concurso</Link>
-        <h1 className="text-xl font-semibold" style={{ color: '#e8e8f0' }}>Editar concurso</h1>
-        <p className="text-sm mt-0.5 truncate" style={{ color: '#8888a0' }}>{exam.name}</p>
+        <Link href={`/exams/${id}`} className="text-xs block mb-2" style={{ color: 'var(--text-muted)' }}>← Voltar ao concurso</Link>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Editar concurso</h1>
+        <p className="text-sm mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{exam.name}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#12121a' }}>
+      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-elevated)' }}>
         {([['info', 'Informações'], ['edital', 'Atualizar edital']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
-              background: tab === key ? '#1e1e30' : 'transparent',
-              color: tab === key ? '#818cf8' : '#8888a0',
+              background: tab === key ? 'var(--primary-soft)' : 'transparent',
+              color: tab === key ? 'var(--primary-soft-text)' : 'var(--text-muted)',
             }}
           >
             {label}
@@ -200,35 +200,35 @@ export default function EditExamPage() {
 
       {/* Tab: Info */}
       {tab === 'info' && (
-        <div className="rounded-xl border p-6 space-y-4" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+        <div className="rounded-xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Nome do concurso *</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Nome do concurso *</label>
             <input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Órgão / Banca</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Órgão / Banca</label>
             <input type="text" value={form.organization} onChange={e => setForm(p => ({ ...p, organization: e.target.value }))} placeholder="Ex: TJSP, TRF1, Vunesp..." />
           </div>
 
           {/* Date / pre-edital */}
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Data da prova</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Data da prova</label>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <div
                 onClick={() => setForm(p => ({ ...p, pre_edital: !p.pre_edital, exam_date: !p.pre_edital ? '' : p.exam_date }))}
                 className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
-                style={{ background: form.pre_edital ? '#f97316' : '#2a2a38' }}
+                style={{ background: form.pre_edital ? 'var(--warning)' : 'var(--border)' }}
               >
                 <div className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: form.pre_edital ? '17px' : '2px' }} />
               </div>
-              <span className="text-xs" style={{ color: form.pre_edital ? '#f97316' : '#8888a0' }}>
+              <span className="text-xs" style={{ color: form.pre_edital ? 'var(--warning)' : 'var(--text-muted)' }}>
                 Ainda não tem edital publicado — estudando com edital anterior
               </span>
             </label>
             {form.pre_edital ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#1e1808', border: '1px solid #3a2e10' }}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--warning-soft)', border: '1px solid #3a2e10' }}>
                 <span className="text-sm">📂</span>
-                <p className="text-xs" style={{ color: '#c8a040' }}>Sem data definida. Adicione a data assim que o edital for publicado.</p>
+                <p className="text-xs" style={{ color: 'var(--warning)' }}>Sem data definida. Adicione a data assim que o edital for publicado.</p>
               </div>
             ) : (
               <input type="date" value={form.exam_date} onChange={e => setForm(p => ({ ...p, exam_date: e.target.value }))} />
@@ -236,7 +236,7 @@ export default function EditExamPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#8888a0' }}>Descrição (opcional)</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Descrição (opcional)</label>
             <textarea rows={2} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Cargo, observações..." style={{ resize: 'none' }} />
           </div>
 
@@ -244,11 +244,11 @@ export default function EditExamPage() {
             <div
               onClick={() => setForm(p => ({ ...p, is_primary: !p.is_primary }))}
               className="w-9 h-5 rounded-full relative transition-colors"
-              style={{ background: form.is_primary ? '#6366f1' : '#2a2a38' }}
+              style={{ background: form.is_primary ? 'var(--primary-strong)' : 'var(--border)' }}
             >
               <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: form.is_primary ? '18px' : '2px' }} />
             </div>
-            <span className="text-sm" style={{ color: '#e8e8f0' }}>Definir como concurso foco principal</span>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>Definir como concurso foco principal</span>
           </label>
 
           <div className="flex items-center gap-3 pt-2">
@@ -256,11 +256,11 @@ export default function EditExamPage() {
               onClick={saveInfo}
               disabled={saving || !form.name.trim()}
               className="px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
-              style={{ background: '#6366f1', color: '#fff' }}
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
               {saving ? 'Salvando...' : 'Salvar alterações'}
             </button>
-            {saveMsg && <span className="text-sm" style={{ color: '#4ade80' }}>✓ {saveMsg}</span>}
+            {saveMsg && <span className="text-sm" style={{ color: 'var(--success)' }}>✓ {saveMsg}</span>}
           </div>
         </div>
       )}
@@ -268,10 +268,10 @@ export default function EditExamPage() {
       {/* Tab: Atualizar edital */}
       {tab === 'edital' && (
         <div className="space-y-4">
-          <div className="rounded-xl border p-5 space-y-4" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+          <div className="rounded-xl border p-5 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div>
-              <h2 className="text-sm font-medium" style={{ color: '#e8e8f0' }}>Novo edital publicado?</h2>
-              <p className="text-xs mt-1" style={{ color: '#8888a0' }}>
+              <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>Novo edital publicado?</h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 Faça o upload do PDF do novo edital. A IA vai comparar com o conteúdo atual e mostrar o que mudou — matérias adicionadas, removidas e tópicos novos.
               </p>
             </div>
@@ -279,17 +279,17 @@ export default function EditExamPage() {
             <div
               onClick={() => fileRef.current?.click()}
               className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-indigo-500"
-              style={{ borderColor: pdfFile ? '#6366f1' : '#2a2a38' }}
+              style={{ borderColor: pdfFile ? 'var(--primary-strong)' : 'var(--border)' }}
             >
               <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={e => { setPdfFile(e.target.files?.[0] || null); setDiff(null); setApplied(false) }} />
               <div className="text-2xl mb-1">{pdfFile ? '📄' : '⬆️'}</div>
               {pdfFile ? (
                 <div>
-                  <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>{pdfFile.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8888a0' }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · Clique para trocar</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{pdfFile.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · Clique para trocar</p>
                 </div>
               ) : (
-                <p className="text-sm" style={{ color: '#8888a0' }}>Clique para selecionar o PDF do novo edital</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Clique para selecionar o PDF do novo edital</p>
               )}
             </div>
 
@@ -300,7 +300,7 @@ export default function EditExamPage() {
                 onClick={comparePdf}
                 disabled={comparing}
                 className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-60"
-                style={{ background: '#6366f1', color: '#fff' }}
+                style={{ background: 'var(--primary-strong)', color: '#fff' }}
               >
                 {comparing ? '⏳ Analisando e comparando...' : '🔍 Comparar com edital atual'}
               </button>
@@ -338,7 +338,7 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
   return (
     <div className="space-y-4">
       {/* Summary bar */}
-      <div className="rounded-xl border p-4 grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+      <div className="rounded-xl border p-4 grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <SummaryChip label="Matérias novas" value={summary.newSubjects} color="#22c55e" />
         <SummaryChip label="Matérias removidas" value={summary.removedSubjects} color="#f87171" />
         <SummaryChip label="Tópicos novos" value={summary.newTopics} color="#22c55e" />
@@ -346,10 +346,10 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
       </div>
 
       {!hasChanges && (
-        <div className="rounded-xl border p-6 text-center" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+        <div className="rounded-xl border p-6 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-3xl mb-2">✅</div>
-          <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>Nenhuma mudança detectada!</p>
-          <p className="text-xs mt-1" style={{ color: '#8888a0' }}>O novo edital tem o mesmo conteúdo programático.</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Nenhuma mudança detectada!</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>O novo edital tem o mesmo conteúdo programático.</p>
         </div>
       )}
 
@@ -360,10 +360,10 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
 
       {/* Action buttons */}
       {!applied && hasChanges && (
-        <div className="rounded-xl border p-4 flex items-start gap-3" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+        <div className="rounded-xl border p-4 flex items-start gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex-1">
-            <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>Aplicar alterações?</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8888a0' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Aplicar alterações?</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Serão adicionados {summary.newTopics} tópico{summary.newTopics !== 1 ? 's' : ''} e {summary.newSubjects} matéria{summary.newSubjects !== 1 ? 's' : ''} novas.
               {summary.removedSubjects > 0 || summary.removedTopics > 0
                 ? ` Itens removidos não são excluídos automaticamente — você pode remover manualmente se quiser.`
@@ -371,14 +371,14 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
             </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button onClick={onReset} className="px-3 py-2 rounded-lg text-xs border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>
+            <button onClick={onReset} className="px-3 py-2 rounded-lg text-xs border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
               Cancelar
             </button>
             <button
               onClick={onApply}
               disabled={applying}
               className="px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-              style={{ background: '#6366f1', color: '#fff' }}
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
               {applying ? 'Aplicando...' : '✓ Aplicar mudanças'}
             </button>
@@ -387,12 +387,12 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
       )}
 
       {applied && (
-        <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: '#17171f', borderColor: '#22c55e' }}>
+        <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: 'var(--surface)', borderColor: '#22c55e' }}>
           <div className="flex items-center gap-2">
             <span className="text-lg">🎉</span>
-            <p className="text-sm font-medium" style={{ color: '#4ade80' }}>Alterações aplicadas com sucesso!</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>Alterações aplicadas com sucesso!</p>
           </div>
-          <button onClick={onGoBack} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ background: '#1a2a1a', color: '#4ade80' }}>
+          <button onClick={onGoBack} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ background: '#1a2a1a', color: 'var(--success)' }}>
             Ver concurso atualizado →
           </button>
         </div>
@@ -405,7 +405,7 @@ function SummaryChip({ label, value, color }: { label: string; value: number; co
   return (
     <div className="text-center">
       <p className="text-2xl font-bold" style={{ color: value > 0 ? color : '#555568' }}>{value}</p>
-      <p className="text-xs mt-0.5" style={{ color: '#8888a0' }}>{label}</p>
+      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }
@@ -414,8 +414,8 @@ function SubjectDiffCard({ subject }: { subject: SubjectDiff }) {
   const [expanded, setExpanded] = useState(subject.status === 'new' || subject.topics.some(t => t.status !== 'existing'))
 
   const statusConfig = {
-    new: { bg: '#0f2a0f', border: '#1a4a1a', badge: { bg: '#14532d', color: '#4ade80', label: '+ Nova matéria' } },
-    existing: { bg: '#17171f', border: '#2a2a38', badge: null },
+    new: { bg: '#0f2a0f', border: '#1a4a1a', badge: { bg: '#14532d', color: 'var(--success)', label: '+ Nova matéria' } },
+    existing: { bg: 'var(--surface)', border: 'var(--border)', badge: null },
     removed: { bg: '#2a0f0f', border: '#4a1a1a', badge: { bg: '#450a0a', color: '#f87171', label: '− Removida' } },
   }
 
@@ -430,10 +430,10 @@ function SubjectDiffCard({ subject }: { subject: SubjectDiff }) {
         onClick={() => setExpanded(e => !e)}
         className="w-full px-5 py-3 flex items-center gap-3 text-left"
       >
-        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: subject.color || '#6366f1', opacity: subject.status === 'removed' ? 0.4 : 1 }} />
+        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: subject.color || 'var(--primary-strong)', opacity: subject.status === 'removed' ? 0.4 : 1 }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium" style={{ color: subject.status === 'removed' ? '#8888a0' : '#e8e8f0', textDecoration: subject.status === 'removed' ? 'line-through' : 'none' }}>
+            <span className="text-sm font-medium" style={{ color: subject.status === 'removed' ? 'var(--text-muted)' : 'var(--text)', textDecoration: subject.status === 'removed' ? 'line-through' : 'none' }}>
               {subject.name}
             </span>
             {cfg.badge && (
@@ -449,7 +449,7 @@ function SubjectDiffCard({ subject }: { subject: SubjectDiff }) {
           </div>
           <p className="text-xs mt-0.5" style={{ color: '#555568' }}>
             {subject.topics.length} tópico{subject.topics.length !== 1 ? 's' : ''}
-            {newTopics.length > 0 && <span style={{ color: '#4ade80' }}> · +{newTopics.length} novo{newTopics.length !== 1 ? 's' : ''}</span>}
+            {newTopics.length > 0 && <span style={{ color: 'var(--success)' }}> · +{newTopics.length} novo{newTopics.length !== 1 ? 's' : ''}</span>}
             {removedTopics.length > 0 && <span style={{ color: '#f87171' }}> · -{removedTopics.length} removido{removedTopics.length !== 1 ? 's' : ''}</span>}
           </p>
         </div>
@@ -459,7 +459,7 @@ function SubjectDiffCard({ subject }: { subject: SubjectDiff }) {
       {expanded && subject.topics.length > 0 && (
         <div className="border-t divide-y" style={{ borderColor: cfg.border }}>
           {subject.topics.map((topic, i) => {
-            const tColor = topic.status === 'new' ? '#4ade80' : topic.status === 'removed' ? '#f87171' : '#8888a0'
+            const tColor = topic.status === 'new' ? 'var(--success)' : topic.status === 'removed' ? '#f87171' : 'var(--text-muted)'
             const tBg = topic.status === 'new' ? '#0a2010' : topic.status === 'removed' ? '#2a0808' : 'transparent'
             const prefix = topic.status === 'new' ? '+' : topic.status === 'removed' ? '−' : ' '
             return (
@@ -476,7 +476,7 @@ function SubjectDiffCard({ subject }: { subject: SubjectDiff }) {
                   {topic.name}
                 </span>
                 {topic.status === 'new' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#14532d', color: '#4ade80' }}>novo</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#14532d', color: 'var(--success)' }}>novo</span>
                 )}
               </div>
             )

@@ -54,8 +54,8 @@ export default function ExamsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold" style={{ color: '#e8e8f0' }}>Concursos</h1>
-        <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: '#6366f1', color: '#fff' }}>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Concursos</h1>
+        <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
           + Novo Concurso
         </Link>
       </div>
@@ -63,8 +63,8 @@ export default function ExamsPage() {
       {exams.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-4xl mb-3">📋</div>
-          <p className="text-sm mb-4" style={{ color: '#8888a0' }}>Nenhum concurso cadastrado ainda.</p>
-          <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium inline-block" style={{ background: '#6366f1', color: '#fff' }}>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Nenhum concurso cadastrado ainda.</p>
+          <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium inline-block" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
             Adicionar concurso
           </Link>
         </div>
@@ -73,41 +73,41 @@ export default function ExamsPage() {
           {exams.map(exam => {
             const daysLeft = exam.exam_date ? differenceInDays(parseISO(exam.exam_date), new Date()) : null
             return (
-              <div key={exam.id} className="rounded-xl border overflow-hidden" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
+              <div key={exam.id} className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {exam.is_primary && (
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#1e1e30', color: '#818cf8' }}>
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
                             ★ Foco principal
                           </span>
                         )}
                         {exam.organization && (
-                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#1e1e28', color: '#8888a0' }}>
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
                             {exam.organization}
                           </span>
                         )}
                         {!exam.exam_date && (
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#1e1808', color: '#f97316' }}>
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
                             📂 Pré-edital
                           </span>
                         )}
                       </div>
-                      <h2 className="text-base font-semibold" style={{ color: '#e8e8f0' }}>{exam.name}</h2>
-                      <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: '#8888a0' }}>
+                      <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h2>
+                      <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                         <span>{exam.subject_count} matérias</span>
                         {exam.exam_date ? (
                           <span>
                             Prova: {format(parseISO(exam.exam_date), "d MMM yyyy", { locale: ptBR })}
                             {daysLeft !== null && daysLeft >= 0 && (
-                              <span className="ml-1" style={{ color: daysLeft < 30 ? '#f87171' : '#8888a0' }}>
+                              <span className="ml-1" style={{ color: daysLeft < 30 ? 'var(--danger)' : 'var(--text-muted)' }}>
                                 ({daysLeft}d restantes)
                               </span>
                             )}
                           </span>
                         ) : (
-                          <span style={{ color: '#f97316' }}>Sem data definida — edital anterior como referência</span>
+                          <span style={{ color: 'var(--warning)' }}>Sem data definida — edital anterior como referência</span>
                         )}
                       </div>
                     </div>
@@ -116,8 +116,8 @@ export default function ExamsPage() {
                       {!exam.is_primary && (
                         <button
                           onClick={() => setPrimary(exam.id)}
-                          className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:border-indigo-500"
-                          style={{ borderColor: '#2a2a38', color: '#8888a0' }}
+                          className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
                         >
                           Definir como foco
                         </button>
@@ -125,7 +125,7 @@ export default function ExamsPage() {
                       <Link
                         href={`/exams/${exam.id}`}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                        style={{ background: '#1e1e30', color: '#818cf8' }}
+                        style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
                       >
                         Ver detalhes
                       </Link>
@@ -133,16 +133,16 @@ export default function ExamsPage() {
                   </div>
 
                   <div className="mt-4 space-y-1">
-                    <div className="flex justify-between text-xs" style={{ color: '#8888a0' }}>
+                    <div className="flex justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
                       <span>Progresso geral</span>
-                      <span style={{ color: '#e8e8f0' }}>{exam.progress}%</span>
+                      <span style={{ color: 'var(--text)' }}>{exam.progress}%</span>
                     </div>
-                    <div className="h-2 rounded-full" style={{ background: '#2a2a38' }}>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-hover)' }}>
                       <div
                         className="h-2 rounded-full transition-all duration-500"
                         style={{
                           width: `${exam.progress}%`,
-                          background: exam.is_primary ? 'linear-gradient(90deg, #6366f1, #818cf8)' : '#4b5563',
+                          background: exam.is_primary ? 'linear-gradient(90deg, var(--primary-strong), var(--primary))' : 'var(--text-muted)',
                         }}
                       />
                     </div>
@@ -159,7 +159,7 @@ export default function ExamsPage() {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center h-full" style={{ color: '#8888a0' }}>
+    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
       <p className="text-sm">Carregando...</p>
     </div>
   )

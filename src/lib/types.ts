@@ -26,6 +26,7 @@ export interface ExamSubject {
   exam_id: string
   subject_id: string
   weight: number
+  completed_at: string | null
   created_at: string
   subject?: Subject
   exam?: Exam
