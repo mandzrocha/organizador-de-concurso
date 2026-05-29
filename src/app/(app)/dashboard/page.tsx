@@ -195,31 +195,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Other exams */}
-            {otherExams.length > 0 && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <h3 className="text-sm font-medium mb-4" style={{ color: 'var(--text-muted)' }}>Outros concursos</h3>
-                <div className="space-y-4">
-                  {otherExams.map(exam => (
-                    <Link key={exam.id} href={`/exams/${exam.id}`} className="block group">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium  transition-colors" style={{ color: 'var(--text)' }}>
-                          {exam.name}
-                        </span>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{exam.progress}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full" style={{ background: 'var(--border)' }}>
-                        <div
-                          className="h-1.5 rounded-full"
-                          style={{ width: `${exam.progress}%`, background: 'var(--text-muted)' }}
-                        />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Recent activity */}
             {(data?.recentLogs.length || 0) > 0 && (
               <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -311,6 +286,29 @@ export default function DashboardPage() {
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{rev.topic?.subject?.name}</p>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Other exams — compact list at the bottom */}
+            {otherExams.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium mb-2 px-1" style={{ color: 'var(--text-subtle)' }}>Outros concursos</h3>
+                <div className="space-y-1">
+                  {otherExams.map(exam => (
+                    <Link
+                      key={exam.id}
+                      href={`/exams/${exam.id}`}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md transition-colors hover:bg-[var(--surface-hover)]"
+                    >
+                      <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{exam.name}</span>
+                      {exam.progress > 0 ? (
+                        <span className="text-xs flex-shrink-0 tabular-nums" style={{ color: 'var(--text-muted)' }}>{exam.progress}%</span>
+                      ) : (
+                        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>—</span>
+                      )}
+                    </Link>
                   ))}
                 </div>
               </div>
