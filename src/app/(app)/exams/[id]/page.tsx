@@ -208,6 +208,32 @@ export default function ExamDetailPage() {
     loadData()
   }
 
+  async function persistTopicOrder(items: TopicWithProgress[]) {
+    await Promise.all(items.map((t, i) =>
+      supabase.from('topics').update({ order_index: i }).eq('id', t.id)
+    ))
+  }
+
+  function reorderTopics(subjectId: string, fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return
+    setSubjects(prev => prev.map(sub => {
+      if (sub.id !== subjectId) return sub
+      const next = [...sub.topics]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      persistTopicOrder(next)
+      return { ...sub, topics: next }
+    }))
+  }
+
+  function moveTopicInSubject(subjectId: string, index: number, direction: -1 | 1) {
+    const sub = subjects.find(s => s.id === subjectId)
+    if (!sub) return
+    const target = index + direction
+    if (target < 0 || target >= sub.topics.length) return
+    reorderTopics(subjectId, index, target)
+  }
+
   async function toggleTopicComplete(topicId: string, currentCompletedAt: string | null) {
     const value = currentCompletedAt ? null : new Date().toISOString().split('T')[0]
     await supabase.from('topics').update({ completed_at: value }).eq('id', topicId)
@@ -357,6 +383,8 @@ export default function ExamDetailPage() {
                 onRenameTopic={renameTopic}
                 onDeleteTopic={deleteTopic}
                 onToggleTopicComplete={toggleTopicComplete}
+                onReorderTopics={(from, to) => reorderTopics(subject.id, from, to)}
+                onMoveTopicInSubject={(i, dir) => moveTopicInSubject(subject.id, i, dir)}
               />
             ))}
           </div>
@@ -425,6 +453,8 @@ function SubjectCard({
   onRenameTopic: (topicId: string, newName: string) => void
   onDeleteTopic: (topicId: string, topicName: string) => void
   onToggleTopicComplete: (topicId: string, currentCompletedAt: string | null) => void
+  onReorderTopics: (fromIndex: number, toIndex: number) => void
+  onMoveTopicInSubject: (index: number, direction: -1 | 1) => void
 }) {
   const supabase = createClient()
   const [showAddTopic, setShowAddTopic] = useState(false)
@@ -433,6 +463,8 @@ function SubjectCard({
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(subject.name)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [topicDragIndex, setTopicDragIndex] = useState<number | null>(null)
+  const [topicDragOverIndex, setTopicDragOverIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -619,10 +651,23 @@ function SubjectCard({
             <p className="px-5 py-6 text-sm text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico ainda. Adicione um abaixo.</p>
           ) : (
             <ul className="py-1">
-              {subject.topics.map(topic => (
+              {subject.topics.map((topic, ti) => (
                 <TopicRow
                   key={topic.id}
                   topic={topic}
+                  index={ti}
+                  total={subject.topics.length}
+                  isDragging={topicDragIndex === ti}
+                  isDragOver={topicDragOverIndex === ti && topicDragIndex !== ti}
+                  onDragStart={() => setTopicDragIndex(ti)}
+                  onDragEnter={() => setTopicDragOverIndex(ti)}
+                  onDragEnd={() => { setTopicDragIndex(null); setTopicDragOverIndex(null) }}
+                  onDrop={() => {
+                    if (topicDragIndex !== null && topicDragIndex !== ti) onReorderTopics(topicDragIndex, ti)
+                    setTopicDragIndex(null); setTopicDragOverIndex(null)
+                  }}
+                  onMoveUp={() => onMoveTopicInSubject(ti, -1)}
+                  onMoveDown={() => onMoveTopicInSubject(ti, 1)}
                   onLog={() => onOpenLog(topic.id, topic.name)}
                   onMove={() => onMoveTopic(topic.id, topic.name)}
                   onRename={(newName) => onRenameTopic(topic.id, newName)}
@@ -663,9 +708,21 @@ function SubjectCard({
 }
 
 function TopicRow({
-  topic, onLog, onMove, onRename, onDelete, onToggleComplete,
+  topic, index, total, isDragging, isDragOver,
+  onDragStart, onDragEnter, onDragEnd, onDrop, onMoveUp, onMoveDown,
+  onLog, onMove, onRename, onDelete, onToggleComplete,
 }: {
   topic: TopicWithProgress
+  index: number
+  total: number
+  isDragging: boolean
+  isDragOver: boolean
+  onDragStart: () => void
+  onDragEnter: () => void
+  onDragEnd: () => void
+  onDrop: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
   onLog: () => void
   onMove: () => void
   onRename: (newName: string) => void
@@ -692,8 +749,30 @@ function TopicRow({
   }, [menuOpen])
 
   return (
-    <li className="px-5 py-4 transition-colors hover:bg-[var(--surface-hover)]" style={{ borderBottom: '1px solid var(--border)' }}>
-      <div className="flex items-start gap-4">
+    <li
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => { e.preventDefault(); onDrop() }}
+      className="px-5 py-4 transition-all hover:bg-[var(--surface-hover)]"
+      style={{
+        borderBottom: '1px solid var(--border)',
+        opacity: isDragging ? 0.4 : 1,
+        background: isDragOver ? 'var(--primary-soft)' : 'transparent',
+      }}
+    >
+      <div className="flex items-start gap-3">
+        {/* Drag handle */}
+        <div
+          className="flex items-center justify-center w-4 cursor-grab active:cursor-grabbing select-none mt-1"
+          style={{ color: 'var(--text-subtle)', lineHeight: 1 }}
+          title="Arraste para reordenar"
+        >
+          <span className="text-xs">⋮⋮</span>
+        </div>
+
         <div
           className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"
           style={{ background: done ? 'var(--success)' : started ? 'var(--warning)' : 'var(--border-strong)' }}
@@ -804,13 +883,29 @@ function TopicRow({
             </button>
             {menuOpen && (
               <div
-                className="absolute right-0 top-8 z-10 w-44 rounded-xl border overflow-hidden"
+                className="absolute right-0 top-8 z-10 w-48 rounded-xl border overflow-hidden"
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
               >
                 <button onClick={() => { setRenaming(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
                   ✏️ Renomear
                 </button>
-                <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
+                <button
+                  onClick={() => { onMoveUp(); setMenuOpen(false) }}
+                  disabled={index === 0}
+                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  style={{ color: 'var(--text)' }}
+                >
+                  ↑ Mover para cima
+                </button>
+                <button
+                  onClick={() => { onMoveDown(); setMenuOpen(false) }}
+                  disabled={index === total - 1}
+                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  style={{ color: 'var(--text)' }}
+                >
+                  ↓ Mover para baixo
+                </button>
+                <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)', borderTop: '1px solid var(--border)' }}>
                   ↔ Mover para outra matéria
                 </button>
                 <button onClick={() => { onDelete(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--danger-soft)]" style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}>
