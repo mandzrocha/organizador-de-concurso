@@ -291,22 +291,22 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Other exams — compact list at the bottom */}
+            {/* Other exams */}
             {otherExams.length > 0 && (
-              <div>
-                <h3 className="text-xs font-medium mb-2 px-1" style={{ color: 'var(--text-subtle)' }}>Outros concursos</h3>
+              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>Outros concursos</h3>
                 <div className="space-y-1">
                   {otherExams.map(exam => (
                     <Link
                       key={exam.id}
                       href={`/exams/${exam.id}`}
-                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md transition-colors hover:bg-[var(--surface-hover)]"
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 -mx-2 rounded-md transition-colors hover:bg-[var(--surface-hover)]"
                     >
-                      <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{exam.name}</span>
+                      <span className="text-sm truncate" style={{ color: 'var(--text)' }}>{exam.name}</span>
                       {exam.progress > 0 ? (
-                        <span className="text-xs flex-shrink-0 tabular-nums" style={{ color: 'var(--text-muted)' }}>{exam.progress}%</span>
+                        <span className="text-xs flex-shrink-0 tabular-nums font-medium" style={{ color: 'var(--text-muted)' }}>{exam.progress}%</span>
                       ) : (
-                        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>—</span>
+                        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>não iniciado</span>
                       )}
                     </Link>
                   ))}
