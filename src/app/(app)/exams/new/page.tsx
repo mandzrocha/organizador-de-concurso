@@ -19,20 +19,54 @@ export default function NewExamPage() {
 
   const [step, setStep] = useState<'info' | 'edital' | 'review' | 'saving'>('info')
   const [examInfo, setExamInfo] = useState({ name: '', organization: '', exam_date: '', description: '', is_primary: false, pre_edital: false })
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [extracting, setExtracting] = useState(false)
   const [subjects, setSubjects] = useState<ExtractedSubject[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  async function extractFromPdf() {
-    if (!pdfFile) return
+  const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return
+    const newFiles = Array.from(incoming).filter(f =>
+      f.type === 'application/pdf' || ACCEPTED_IMAGE_TYPES.includes(f.type)
+    )
+    // If a PDF is added, replace everything with just the PDF
+    const hasPdf = newFiles.some(f => f.type === 'application/pdf')
+    if (hasPdf) {
+      setFiles(newFiles.filter(f => f.type === 'application/pdf').slice(0, 1))
+    } else {
+      setFiles(prev => {
+        const existingImages = prev.filter(f => f.type !== 'application/pdf')
+        const combined = [...existingImages, ...newFiles]
+        // deduplicate by name+size
+        const seen = new Set<string>()
+        return combined.filter(f => {
+          const key = `${f.name}-${f.size}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      })
+    }
+  }
+
+  function removeFile(index: number) {
+    setFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const isPdf = files.length === 1 && files[0].type === 'application/pdf'
+  const isImages = files.length > 0 && files.every(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
+
+  async function extractFromFiles() {
+    if (!files.length) return
     setExtracting(true)
     setError('')
 
     try {
       const formData = new FormData()
-      formData.append('file', pdfFile)
+      for (const f of files) formData.append('files', f)
 
       const res = await fetch('/api/extract-edital', { method: 'POST', body: formData })
       const data = await res.json()
@@ -271,52 +305,84 @@ export default function NewExamPage() {
       {step === 'edital' && (
         <div className="rounded-xl border p-6 space-y-5" style={{ background: '#17171f', borderColor: '#2a2a38' }}>
           <div>
-            <h2 className="text-sm font-medium mb-1" style={{ color: '#e8e8f0' }}>Upload do Edital (PDF)</h2>
+            <h2 className="text-sm font-medium mb-1" style={{ color: '#e8e8f0' }}>Edital — PDF ou Fotos</h2>
             <p className="text-xs" style={{ color: '#8888a0' }}>
-              A IA vai extrair automaticamente as matérias e tópicos do edital. Você poderá revisar antes de salvar.
+              Envie o PDF do edital <strong style={{ color: '#c8c8e0' }}>ou tire fotos</strong> das páginas com as matérias. A IA extrai tudo automaticamente.
             </p>
           </div>
 
+          {/* Drop zone */}
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors hover:border-indigo-500"
-            style={{ borderColor: pdfFile ? '#6366f1' : '#2a2a38' }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files) }}
+            className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-indigo-500"
+            style={{ borderColor: files.length ? '#6366f1' : '#2a2a38' }}
           >
             <input
               ref={fileRef}
               type="file"
-              accept=".pdf"
+              accept=".pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
+              multiple
               className="hidden"
-              onChange={e => setPdfFile(e.target.files?.[0] || null)}
+              onChange={e => addFiles(e.target.files)}
             />
-            <div className="text-3xl mb-2">{pdfFile ? '📄' : '⬆️'}</div>
-            {pdfFile ? (
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#e8e8f0' }}>{pdfFile.name}</p>
-                <p className="text-xs mt-1" style={{ color: '#8888a0' }}>
-                  {(pdfFile.size / 1024 / 1024).toFixed(2)} MB · Clique para trocar
-                </p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm" style={{ color: '#8888a0' }}>Clique para selecionar o PDF do edital</p>
-                <p className="text-xs mt-1" style={{ color: '#555568' }}>Máximo 10MB</p>
-              </div>
-            )}
+            <div className="text-3xl mb-2">⬆️</div>
+            <p className="text-sm" style={{ color: '#c8c8e0' }}>
+              Clique ou arraste arquivos aqui
+            </p>
+            <p className="text-xs mt-1" style={{ color: '#555568' }}>
+              PDF (1 arquivo) · Fotos JPG/PNG/WebP (várias) · Máx 10MB por arquivo
+            </p>
           </div>
+
+          {/* File list */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              {files.map((f, i) => {
+                const isImage = ACCEPTED_IMAGE_TYPES.includes(f.type)
+                const url = isImage ? URL.createObjectURL(f) : null
+                return (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ background: '#1a1a24', borderColor: '#2a2a38' }}>
+                    {url ? (
+                      <img src={url} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0 text-xl" style={{ background: '#1e1e30' }}>📄</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate" style={{ color: '#e8e8f0' }}>{f.name}</p>
+                      <p className="text-xs" style={{ color: '#555568' }}>{(f.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <button onClick={() => removeFile(i)} className="text-sm flex-shrink-0" style={{ color: '#555568' }}>✕</button>
+                  </div>
+                )
+              })}
+              {isImages && (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full py-2 rounded-lg text-xs border border-dashed"
+                  style={{ borderColor: '#2a2a38', color: '#6366f1' }}
+                >
+                  + Adicionar mais fotos
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button onClick={() => setStep('info')} className="px-4 py-2.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: '#8888a0' }}>
               ← Voltar
             </button>
-            {pdfFile && (
+            {files.length > 0 && (
               <button
-                onClick={extractFromPdf}
+                onClick={extractFromFiles}
                 disabled={extracting}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60"
                 style={{ background: '#6366f1', color: '#fff' }}
               >
-                {extracting ? '⏳ Analisando edital...' : '✨ Extrair com IA'}
+                {extracting
+                  ? `⏳ Analisando ${isPdf ? 'PDF' : `${files.length} foto${files.length > 1 ? 's' : ''}`}...`
+                  : `✨ Extrair com IA`}
               </button>
             )}
             <button

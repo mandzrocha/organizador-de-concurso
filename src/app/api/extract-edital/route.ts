@@ -4,34 +4,7 @@ import { extractTextFromPdf } from '@/lib/pdf'
 
 export const maxDuration = 60
 
-export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    if (!file) return NextResponse.json({ error: 'Arquivo não enviado' }, { status: 400 })
-    if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'Arquivo muito grande (máx 10MB)' }, { status: 400 })
-
-    const pdfText = await extractTextFromPdf(file)
-    if (!pdfText || pdfText.length < 100) {
-      return NextResponse.json({ error: 'Não foi possível extrair texto do PDF. O arquivo pode ser uma imagem escaneada sem texto.' }, { status: 400 })
-    }
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.5-flash',
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 32768,
-        responseMimeType: 'application/json',
-      },
-    })
-
-    const result = await model.generateContent(`Você é um especialista em editais de concursos públicos brasileiros. O texto abaixo foi extraído de um PDF e pode conter MUITO conteúdo irrelevante (Diário Oficial, despachos, regras de inscrição, etc.). Sua tarefa é localizar a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS / ANEXO de matérias e extrair o programa de estudos completo.
-
-CONTEÚDO DO EDITAL (texto completo extraído do PDF):
-${pdfText.slice(0, 400000)}
-
----
+const EXTRACT_PROMPT = `Você é um especialista em editais de concursos públicos brasileiros. Sua tarefa é localizar a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS / ANEXO de matérias e extrair o programa de estudos completo.
 
 Localize a seção do programa das provas (geralmente perto do fim do documento, podendo estar dividida em BLOCOS) e extraia TODAS as matérias (disciplinas) e seus respectivos tópicos.
 
@@ -47,14 +20,79 @@ Retorne APENAS um JSON válido neste formato exato:
 Regras:
 - Cada tópico deve ser uma string. Se for muito longo (>180 caracteres), resuma mantendo o sentido e referências legais (artigos, leis).
 - Ignore cargos, salários, vagas, inscrições, cronograma, locais de prova, despachos e demais conteúdos administrativos.
-- NÃO invente matérias ou tópicos que não estejam no texto.`)
+- NÃO invente matérias ou tópicos que não estejam no documento.`
+
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData()
+    const files = formData.getAll('files') as File[]
+    if (!files.length) return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 32768,
+        responseMimeType: 'application/json',
+      },
+    })
+
+    const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    const images = files.filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
+    const pdfs = files.filter(f => f.type === 'application/pdf')
+
+    let result
+
+    if (images.length > 0) {
+      // Vision mode: send images directly to Gemini
+      const MAX_IMAGE_SIZE = 10 * 1024 * 1024
+      for (const img of images) {
+        if (img.size > MAX_IMAGE_SIZE) {
+          return NextResponse.json({ error: `Imagem "${img.name}" muito grande (máx 10MB por imagem)` }, { status: 400 })
+        }
+      }
+
+      const imageParts = await Promise.all(
+        images.map(async img => ({
+          inlineData: {
+            mimeType: img.type,
+            data: Buffer.from(await img.arrayBuffer()).toString('base64'),
+          },
+        }))
+      )
+
+      result = await model.generateContent([
+        `Analise ${images.length > 1 ? 'estas ' + images.length + ' imagens do edital' : 'esta imagem do edital'}. ${EXTRACT_PROMPT}`,
+        ...imageParts,
+      ])
+    } else if (pdfs.length > 0) {
+      // PDF mode: extract text then send to Gemini
+      const pdf = pdfs[0]
+      if (pdf.size > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'PDF muito grande (máx 10MB)' }, { status: 400 })
+      }
+
+      const pdfText = await extractTextFromPdf(pdf)
+      if (!pdfText || pdfText.length < 100) {
+        return NextResponse.json({
+          error: 'Não foi possível extrair texto do PDF. Tente enviar o edital como foto(s).',
+        }, { status: 400 })
+      }
+
+      result = await model.generateContent(
+        `Você é um especialista em editais de concursos públicos brasileiros. O texto abaixo foi extraído de um PDF e pode conter MUITO conteúdo irrelevante (Diário Oficial, despachos, regras de inscrição, etc.). ${EXTRACT_PROMPT}
+
+CONTEÚDO DO EDITAL (texto completo extraído do PDF):
+${pdfText.slice(0, 400000)}`
+      )
+    } else {
+      return NextResponse.json({ error: 'Formato não suportado. Envie PDF ou imagens (JPG, PNG, WebP).' }, { status: 400 })
+    }
 
     const text = result.response.text().trim()
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      console.error('AI response:', text)
-      throw new Error('A IA não retornou um JSON válido. Tente novamente.')
-    }
+    if (!jsonMatch) throw new Error('A IA não retornou um JSON válido. Tente novamente.')
 
     const parsed = JSON.parse(jsonMatch[0])
     if (!parsed.subjects || !Array.isArray(parsed.subjects)) {
