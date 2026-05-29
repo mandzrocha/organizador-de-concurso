@@ -7,6 +7,7 @@ export interface Exam {
   organization: string | null
   exam_date: string | null
   is_primary: boolean
+  is_watching: boolean
   edital_url: string | null
   description: string | null
   created_at: string

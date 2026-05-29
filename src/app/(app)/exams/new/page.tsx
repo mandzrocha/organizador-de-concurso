@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SUBJECT_COLORS } from '@/lib/types'
 
@@ -14,11 +14,12 @@ interface ExtractedSubject {
 
 export default function NewExamPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<'info' | 'edital' | 'review' | 'saving'>('info')
-  const [examInfo, setExamInfo] = useState({ name: '', organization: '', exam_date: '', description: '', is_primary: false, pre_edital: false })
+  const [examInfo, setExamInfo] = useState({ name: '', organization: '', exam_date: '', description: '', is_primary: false, pre_edital: false, is_watching: false })
   const [files, setFiles] = useState<File[]>([])
   const [extracting, setExtracting] = useState(false)
   const [subjects, setSubjects] = useState<ExtractedSubject[]>([])
@@ -26,6 +27,12 @@ export default function NewExamPage() {
   const [saving, setSaving] = useState(false)
 
   const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+
+  useEffect(() => {
+    if (searchParams.get('watching') === '1') {
+      setExamInfo(p => ({ ...p, is_watching: true }))
+    }
+  }, [searchParams])
 
   function addFiles(incoming: FileList | null) {
     if (!incoming) return
@@ -91,8 +98,9 @@ export default function NewExamPage() {
       name: examInfo.name,
       organization: examInfo.organization || null,
       description: examInfo.description || null,
-      is_primary: examInfo.is_primary,
-      exam_date: examInfo.pre_edital ? null : (examInfo.exam_date || null),
+      is_primary: examInfo.is_watching ? false : examInfo.is_primary,
+      is_watching: examInfo.is_watching,
+      exam_date: examInfo.is_watching || examInfo.pre_edital ? null : (examInfo.exam_date || null),
     }
   }
 
@@ -214,6 +222,34 @@ export default function NewExamPage() {
       {/* Step 1: Info */}
       {step === 'info' && (
         <div className="rounded-xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          {/* Watching toggle */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setExamInfo(p => ({ ...p, is_watching: false }))}
+              className="px-3 py-3 rounded-xl border text-left transition-all"
+              style={{
+                background: !examInfo.is_watching ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                borderColor: !examInfo.is_watching ? 'var(--primary)' : 'var(--border)',
+              }}
+            >
+              <p className="text-sm font-medium" style={{ color: !examInfo.is_watching ? 'var(--primary-soft-text)' : 'var(--text)' }}>📚 Estudar</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Concurso ativo com cronograma</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExamInfo(p => ({ ...p, is_watching: true, is_primary: false }))}
+              className="px-3 py-3 rounded-xl border text-left transition-all"
+              style={{
+                background: examInfo.is_watching ? 'var(--warning-soft)' : 'var(--surface-hover)',
+                borderColor: examInfo.is_watching ? 'var(--warning)' : 'var(--border)',
+              }}
+            >
+              <p className="text-sm font-medium" style={{ color: examInfo.is_watching ? 'var(--warning)' : 'var(--text)' }}>👀 De olho</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Aguardando edital sair</p>
+            </button>
+          </div>
+
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Nome do concurso *</label>
             <input
@@ -232,38 +268,40 @@ export default function NewExamPage() {
               onChange={e => setExamInfo(p => ({ ...p, organization: e.target.value }))}
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Data da prova</label>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <div
-                onClick={() => setExamInfo(p => ({ ...p, pre_edital: !p.pre_edital, exam_date: !p.pre_edital ? '' : p.exam_date }))}
-                className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
-                style={{ background: examInfo.pre_edital ? 'var(--warning)' : 'var(--border)' }}
-              >
+          {!examInfo.is_watching && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Data da prova</label>
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
                 <div
-                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
-                  style={{ left: examInfo.pre_edital ? '17px' : '2px' }}
+                  onClick={() => setExamInfo(p => ({ ...p, pre_edital: !p.pre_edital, exam_date: !p.pre_edital ? '' : p.exam_date }))}
+                  className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
+                  style={{ background: examInfo.pre_edital ? 'var(--warning)' : 'var(--border)' }}
+                >
+                  <div
+                    className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
+                    style={{ left: examInfo.pre_edital ? '17px' : '2px' }}
+                  />
+                </div>
+                <span className="text-xs" style={{ color: examInfo.pre_edital ? 'var(--warning)' : 'var(--text-muted)' }}>
+                  Ainda não tem edital publicado — estudando com edital anterior
+                </span>
+              </label>
+              {examInfo.pre_edital ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--warning-soft)' }}>
+                  <span className="text-sm">📂</span>
+                  <p className="text-xs" style={{ color: 'var(--warning)' }}>
+                    Sem data definida. Você pode adicionar a data assim que o edital for publicado.
+                  </p>
+                </div>
+              ) : (
+                <input
+                  type="date"
+                  value={examInfo.exam_date}
+                  onChange={e => setExamInfo(p => ({ ...p, exam_date: e.target.value }))}
                 />
-              </div>
-              <span className="text-xs" style={{ color: examInfo.pre_edital ? 'var(--warning)' : 'var(--text-muted)' }}>
-                Ainda não tem edital publicado — estudando com edital anterior
-              </span>
-            </label>
-            {examInfo.pre_edital ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--warning-soft)', border: '1px solid #3a2e10' }}>
-                <span className="text-sm">📂</span>
-                <p className="text-xs" style={{ color: 'var(--warning)' }}>
-                  Sem data definida. Você pode adicionar a data assim que o edital for publicado.
-                </p>
-              </div>
-            ) : (
-              <input
-                type="date"
-                value={examInfo.exam_date}
-                onChange={e => setExamInfo(p => ({ ...p, exam_date: e.target.value }))}
-              />
-            )}
-          </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Descrição (opcional)</label>
             <textarea
@@ -274,29 +312,42 @@ export default function NewExamPage() {
               style={{ resize: 'none' }}
             />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <div
-              onClick={() => setExamInfo(p => ({ ...p, is_primary: !p.is_primary }))}
-              className="w-9 h-5 rounded-full relative transition-colors"
-              style={{ background: examInfo.is_primary ? 'var(--primary-strong)' : 'var(--border)' }}
-            >
+          {!examInfo.is_watching && (
+            <label className="flex items-center gap-2 cursor-pointer">
               <div
-                className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                style={{ left: examInfo.is_primary ? '18px' : '2px' }}
-              />
-            </div>
-            <span className="text-sm" style={{ color: 'var(--text)' }}>Definir como concurso foco principal</span>
-          </label>
+                onClick={() => setExamInfo(p => ({ ...p, is_primary: !p.is_primary }))}
+                className="w-9 h-5 rounded-full relative transition-colors"
+                style={{ background: examInfo.is_primary ? 'var(--primary-strong)' : 'var(--border)' }}
+              >
+                <div
+                  className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                  style={{ left: examInfo.is_primary ? '18px' : '2px' }}
+                />
+              </div>
+              <span className="text-sm" style={{ color: 'var(--text)' }}>Definir como concurso foco principal</span>
+            </label>
+          )}
 
           <div className="flex gap-3 pt-2">
-            <button
-              disabled={!examInfo.name.trim()}
-              onClick={() => setStep('edital')}
-              className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
-              style={{ background: 'var(--primary-strong)', color: '#fff' }}
-            >
-              Próximo →
-            </button>
+            {examInfo.is_watching ? (
+              <button
+                disabled={!examInfo.name.trim() || saving}
+                onClick={saveExamWithoutEdital}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
+                style={{ background: 'var(--warning)', color: '#fff' }}
+              >
+                {saving ? 'Salvando...' : '👀 Salvar para acompanhar'}
+              </button>
+            ) : (
+              <button
+                disabled={!examInfo.name.trim()}
+                onClick={() => setStep('edital')}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40"
+                style={{ background: 'var(--primary-strong)', color: '#fff' }}
+              >
+                Próximo →
+              </button>
+            )}
           </div>
         </div>
       )}

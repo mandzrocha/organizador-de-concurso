@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     )
 
     const [examsRes, esRes, topicsRes, existingRes, revisionsRes] = await Promise.all([
-      supabase.from('exams').select('*').order('is_primary', { ascending: false }),
+      supabase.from('exams').select('*').eq('is_watching', false).order('is_primary', { ascending: false }),
       supabase.from('exam_subjects').select('exam_id, subject_id, completed_at'),
       supabase.from('topics').select('*, subject:subjects(*), study_logs(activity_type)'),
       supabase.from('calendar_plans').select('planned_date, topic_id, activity_type').gte('planned_date', new Date().toISOString().split('T')[0]),

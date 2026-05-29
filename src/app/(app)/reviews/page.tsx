@@ -1,53 +1,59 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { RevisionSchedule, Topic, Subject, ActivityType, ACTIVITY_LABELS } from '@/lib/types'
+import { RevisionSchedule, Topic, Subject, ActivityType, StudyLog } from '@/lib/types'
 import { sm2 } from '@/lib/sm2'
 import { isSupabaseConfigured } from '@/lib/config'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-type RevWithTopic = RevisionSchedule & { topic: Topic & { subject: Subject } }
+type RevWithTopic = RevisionSchedule & { topic: Topic & { subject: Subject; exams?: { name: string; is_primary: boolean }[] } }
+type Tab = 'pending' | 'upcoming' | 'history' | 'stats'
 
 const QUALITY_OPTIONS = [
-  { value: 5, label: 'Fácil demais', color: '#22c55e', desc: 'Lembro muito bem' },
-  { value: 4, label: 'Bom', color: '#84cc16', desc: 'Lembro bem' },
-  { value: 3, label: 'Regular', color: '#eab308', desc: 'Lembro com esforço' },
-  { value: 2, label: 'Difícil', color: '#f97316', desc: 'Esqueci bastante' },
-  { value: 1, label: 'Muito difícil', color: '#ef4444', desc: 'Não lembrei' },
+  { value: 5, label: 'Fácil demais',   color: 'var(--success)', desc: 'Lembrei sem esforço, posso espaçar mais' },
+  { value: 4, label: 'Bom',            color: '#84cc16',        desc: 'Lembrei bem, com leve esforço' },
+  { value: 3, label: 'Regular',        color: '#eab308',        desc: 'Lembrei com bastante esforço' },
+  { value: 2, label: 'Difícil',        color: 'var(--warning)', desc: 'Esqueci a maior parte' },
+  { value: 1, label: 'Muito difícil',  color: 'var(--danger)',  desc: 'Não lembrei quase nada — preciso revisar do zero' },
 ]
+
+function easeLabel(ef: number): { label: string; color: string } {
+  if (ef >= 2.5) return { label: 'Fácil',     color: 'var(--success)' }
+  if (ef >= 2.0) return { label: 'Mediano',   color: '#84cc16' }
+  if (ef >= 1.7) return { label: 'Difícil',   color: 'var(--warning)' }
+  return                  { label: 'Crítico',  color: 'var(--danger)' }
+}
 
 export default function ReviewsPage() {
   const supabase = createClient()
-  const [reviews, setReviews] = useState<RevWithTopic[]>([])
-  const [upcoming, setUpcoming] = useState<RevWithTopic[]>([])
+  const [allReviews, setAllReviews] = useState<RevWithTopic[]>([])
+  const [recentReviews, setRecentReviews] = useState<(StudyLog & { topic: Topic & { subject: Subject } })[]>([])
   const [loading, setLoading] = useState(true)
   const [doing, setDoing] = useState<RevWithTopic | null>(null)
   const [saving, setSaving] = useState(false)
+  const [tab, setTab] = useState<Tab>('pending')
+  const [subjectFilter, setSubjectFilter] = useState<string>('all')
 
-  useEffect(() => { loadReviews() }, [])
+  useEffect(() => { loadAll() }, [])
 
-  async function loadReviews() {
+  async function loadAll() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
-    const today = new Date().toISOString().split('T')[0]
-    const in7days = new Date(); in7days.setDate(in7days.getDate() + 7)
-
-    const [dueRes, upcomingRes] = await Promise.all([
+    const [revRes, logsRes] = await Promise.all([
       supabase.from('revision_schedule')
         .select('*, topic:topics(*, subject:subjects(*))')
-        .lte('next_review', today)
-        .order('next_review'),
-      supabase.from('revision_schedule')
+        .order('next_review', { ascending: true })
+        .limit(500),
+      supabase.from('study_logs')
         .select('*, topic:topics(*, subject:subjects(*))')
-        .gt('next_review', today)
-        .lte('next_review', in7days.toISOString().split('T')[0])
-        .order('next_review')
-        .limit(20),
+        .eq('activity_type', 'review')
+        .order('studied_at', { ascending: false })
+        .limit(40),
     ])
-
-    setReviews((dueRes.data || []) as RevWithTopic[])
-    setUpcoming((upcomingRes.data || []) as RevWithTopic[])
+    setAllReviews((revRes.data || []) as RevWithTopic[])
+    setRecentReviews((logsRes.data || []) as any)
     setLoading(false)
   }
 
@@ -66,126 +72,459 @@ export default function ReviewsPage() {
     })
     setSaving(false)
     setDoing(null)
-    loadReviews()
+    loadAll()
   }
+
+  async function postpone(reviewId: string, days: number) {
+    const current = allReviews.find(r => r.id === reviewId)
+    if (!current) return
+    const base = current.next_review ? parseISO(current.next_review) : new Date()
+    const next = addDays(base, days)
+    await supabase.from('revision_schedule').update({
+      next_review: next.toISOString().split('T')[0],
+    }).eq('id', reviewId)
+    loadAll()
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().split('T')[0]
+
+  const { overdue, dueToday, upcoming, all } = useMemo(() => {
+    const filtered = subjectFilter === 'all'
+      ? allReviews
+      : allReviews.filter(r => r.topic?.subject?.id === subjectFilter)
+
+    const overdue: RevWithTopic[] = []
+    const dueToday: RevWithTopic[] = []
+    const upcoming: RevWithTopic[] = []
+
+    for (const r of filtered) {
+      if (!r.next_review) continue
+      const days = differenceInDays(parseISO(r.next_review), today)
+      if (days < 0) overdue.push(r)
+      else if (days === 0) dueToday.push(r)
+      else upcoming.push(r)
+    }
+    return { overdue, dueToday, upcoming, all: filtered }
+  }, [allReviews, subjectFilter, todayStr])
+
+  const subjects = useMemo(() => {
+    const map = new Map<string, Subject>()
+    for (const r of allReviews) {
+      if (r.topic?.subject) map.set(r.topic.subject.id, r.topic.subject)
+    }
+    return [...map.values()]
+  }, [allReviews])
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = allReviews.length
+    const struggling = allReviews.filter(r => r.ease_factor < 1.7)
+    const mastered = allReviews.filter(r => r.repetitions >= 5 && r.ease_factor >= 2.5)
+    const avgInterval = allReviews.length ? Math.round(allReviews.reduce((s, r) => s + r.interval_days, 0) / allReviews.length) : 0
+    const reviewedThisWeek = recentReviews.filter(l => differenceInDays(today, parseISO(l.studied_at)) <= 7).length
+    return { total, struggling, mastered, avgInterval, reviewedThisWeek }
+  }, [allReviews, recentReviews, today])
 
   if (loading) return <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}><p className="text-sm">Carregando...</p></div>
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Revisões</h1>
         <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Sistema de repetição espaçada (SM-2)</p>
       </div>
 
-      {/* Due reviews */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Para revisar hoje</h2>
-          {reviews.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
-              {reviews.length}
+      {/* Overview cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard label="Em atraso" value={overdue.length} color="var(--danger)" soft="var(--danger-soft)" onClick={() => setTab('pending')} />
+        <StatCard label="Hoje" value={dueToday.length} color="var(--warning)" soft="var(--warning-soft)" onClick={() => setTab('pending')} />
+        <StatCard label="Próximas" value={upcoming.length} color="var(--primary)" soft="var(--primary-soft)" onClick={() => setTab('upcoming')} />
+        <StatCard label="Total ativo" value={all.length} color="var(--text-muted)" soft="var(--surface-hover)" />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b" style={{ borderColor: 'var(--border)' }}>
+        {([
+          { key: 'pending'  as const, label: `Para revisar (${overdue.length + dueToday.length})` },
+          { key: 'upcoming' as const, label: `Próximas (${upcoming.length})` },
+          { key: 'history'  as const, label: `Histórico (${recentReviews.length})` },
+          { key: 'stats'    as const, label: 'Estatísticas' },
+        ]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className="px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              color: tab === t.key ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: tab === t.key ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: '-1px',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Subject filter */}
+      {subjects.length > 1 && tab !== 'stats' && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Filtrar:</span>
+          <button
+            onClick={() => setSubjectFilter('all')}
+            className="text-xs px-2.5 py-1 rounded-md border"
+            style={{
+              background: subjectFilter === 'all' ? 'var(--primary-soft)' : 'transparent',
+              borderColor: subjectFilter === 'all' ? 'var(--primary)' : 'var(--border)',
+              color: subjectFilter === 'all' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+            }}
+          >
+            Todas
+          </button>
+          {subjects.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setSubjectFilter(s.id)}
+              className="text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5"
+              style={{
+                background: subjectFilter === s.id ? 'var(--primary-soft)' : 'transparent',
+                borderColor: subjectFilter === s.id ? 'var(--primary)' : 'var(--border)',
+                color: subjectFilter === s.id ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Pending */}
+      {tab === 'pending' && (
+        <div className="space-y-6">
+          {overdue.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--danger)' }}>
+                🚨 Em atraso
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--danger-soft)' }}>{overdue.length}</span>
+              </h3>
+              <div className="space-y-2">
+                {overdue.map(rev => <ReviewRow key={rev.id} rev={rev} status="overdue" onStart={() => setDoing(rev)} onPostpone={(d) => postpone(rev.id, d)} />)}
+              </div>
+            </section>
+          )}
+
+          {dueToday.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--warning)' }}>
+                📌 Para hoje
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--warning-soft)' }}>{dueToday.length}</span>
+              </h3>
+              <div className="space-y-2">
+                {dueToday.map(rev => <ReviewRow key={rev.id} rev={rev} status="today" onStart={() => setDoing(rev)} onPostpone={(d) => postpone(rev.id, d)} />)}
+              </div>
+            </section>
+          )}
+
+          {overdue.length === 0 && dueToday.length === 0 && (
+            <div className="rounded-2xl border p-10 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="text-4xl mb-2">🎉</div>
+              <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>Nenhuma revisão pendente!</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Você está em dia. Continue estudando para criar novas revisões.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Upcoming */}
+      {tab === 'upcoming' && (
+        <div className="space-y-2">
+          {upcoming.length === 0 ? (
+            <div className="rounded-2xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma revisão futura agendada.</p>
+            </div>
+          ) : (
+            upcoming.map(rev => <ReviewRow key={rev.id} rev={rev} status="upcoming" onStart={() => setDoing(rev)} onPostpone={(d) => postpone(rev.id, d)} />)
+          )}
+        </div>
+      )}
+
+      {/* Tab: History */}
+      {tab === 'history' && (
+        <div className="space-y-2">
+          {recentReviews.length === 0 ? (
+            <div className="rounded-2xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma revisão feita ainda.</p>
+            </div>
+          ) : (
+            recentReviews.map(log => (
+              <div key={log.id} className="rounded-xl border p-3 flex items-center gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'var(--success-soft)' }}>🔁</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{log.topic?.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {log.topic?.subject && (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: log.topic.subject.color }} />
+                        {log.topic.subject.name}
+                      </span>
+                    )}
+                    <span>· {format(parseISO(log.studied_at), "d 'de' MMM yyyy", { locale: ptBR })}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Tab: Stats */}
+      {tab === 'stats' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Tópicos em revisão</p>
+              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.total}</p>
+            </div>
+            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Revisões nesta semana</p>
+              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.reviewedThisWeek}</p>
+            </div>
+            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Intervalo médio</p>
+              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.avgInterval} dias</p>
+            </div>
+            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Bem fixados</p>
+              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--success)' }}>{stats.mastered.length}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>5+ revisões com facilidade alta</p>
+            </div>
+          </div>
+
+          {/* Struggling topics */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
+              🆘 Tópicos com dificuldade
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>{stats.struggling.length}</span>
+            </h3>
+            {stats.struggling.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico com dificuldade no momento.</p>
+            ) : (
+              <div className="space-y-2">
+                {stats.struggling.map(rev => (
+                  <div key={rev.id} className="rounded-xl border p-3 flex items-center gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--danger)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {rev.topic?.subject?.name} · Facilidade {rev.ease_factor.toFixed(2)} · {rev.repetitions} revisões
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setDoing(rev)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                      style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
+                    >
+                      Revisar agora
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {doing && <ReviewModal rev={doing} saving={saving} onCancel={() => setDoing(null)} onSubmit={submitReview} />}
+    </div>
+  )
+}
+
+function StatCard({ label, value, color, soft, onClick }: { label: string; value: number; color: string; soft: string; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className="rounded-xl border p-4 text-left transition-all"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)', cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-2xl font-bold mt-1" style={{ color: value > 0 ? color : 'var(--text-subtle)' }}>{value}</p>
+    </button>
+  )
+}
+
+function ReviewRow({ rev, status, onStart, onPostpone }: {
+  rev: RevWithTopic
+  status: 'overdue' | 'today' | 'upcoming'
+  onStart: () => void
+  onPostpone: (days: number) => void
+}) {
+  const ease = easeLabel(rev.ease_factor)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = rev.next_review ? differenceInDays(parseISO(rev.next_review), today) : 0
+  const lastDays = rev.last_reviewed ? differenceInDays(today, parseISO(rev.last_reviewed)) : null
+
+  const statusColor =
+    status === 'overdue' ? 'var(--danger)' :
+    status === 'today'   ? 'var(--warning)' :
+    'var(--text-muted)'
+  const statusBg =
+    status === 'overdue' ? 'var(--danger-soft)' :
+    status === 'today'   ? 'var(--warning-soft)' :
+    'transparent'
+  const statusText =
+    status === 'overdue' ? `${Math.abs(days)}d em atraso` :
+    status === 'today'   ? 'Para hoje' :
+    `em ${days} ${days === 1 ? 'dia' : 'dias'}`
+
+  return (
+    <div
+      className="rounded-xl border flex items-center gap-3 px-4 py-3 transition-colors"
+      style={{
+        background: 'var(--surface)',
+        borderColor: status === 'overdue' ? 'var(--danger)' : 'var(--border)',
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-md font-medium"
+            style={{ background: statusBg, color: statusColor }}
+          >
+            {statusText}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+          {rev.topic?.subject && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: rev.topic.subject.color }} />
+              {rev.topic.subject.name}
             </span>
+          )}
+          <span>·</span>
+          <span style={{ color: ease.color }}>Facilidade: {ease.label}</span>
+          <span>·</span>
+          <span>{rev.repetitions} {rev.repetitions === 1 ? 'revisão' : 'revisões'}</span>
+          {lastDays !== null && (
+            <>
+              <span>·</span>
+              <span>Última há {lastDays}d</span>
+            </>
+          )}
+          <span>·</span>
+          <span>Próxima: {rev.next_review ? format(parseISO(rev.next_review), "d MMM", { locale: ptBR }) : '—'}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="relative group">
+          <button
+            className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            title="Adiar revisão"
+          >
+            ⏱ Adiar
+          </button>
+          <div
+            className="absolute right-0 top-9 z-10 hidden group-hover:block w-40 rounded-xl border overflow-hidden"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <button onClick={() => onPostpone(1)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 1 dia</button>
+            <button onClick={() => onPostpone(3)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 3 dias</button>
+            <button onClick={() => onPostpone(7)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 1 semana</button>
+            <button onClick={() => onPostpone(14)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 2 semanas</button>
+          </div>
+        </div>
+        <button
+          onClick={onStart}
+          className="text-xs px-3 py-1.5 rounded-lg font-medium"
+          style={{ background: 'var(--primary-strong)', color: '#fff' }}
+        >
+          Revisar →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ReviewModal({ rev, saving, onCancel, onSubmit }: {
+  rev: RevWithTopic
+  saving: boolean
+  onCancel: () => void
+  onSubmit: (q: number) => void
+}) {
+  const ease = easeLabel(rev.ease_factor)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const lastDays = rev.last_reviewed ? differenceInDays(today, parseISO(rev.last_reviewed)) : null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-xs mb-0.5" style={{ color: 'var(--primary)' }}>🔁 Revisar</p>
+          <h2 className="text-lg font-semibold leading-tight" style={{ color: 'var(--text)' }}>{rev.topic?.name}</h2>
+          <div className="flex items-center gap-3 mt-2 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+            {rev.topic?.subject && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: rev.topic.subject.color }} />
+                {rev.topic.subject.name}
+              </span>
+            )}
+            <span>·</span>
+            <span>{rev.repetitions} {rev.repetitions === 1 ? 'revisão' : 'revisões'}</span>
+            <span>·</span>
+            <span>Intervalo atual: {rev.interval_days} {rev.interval_days === 1 ? 'dia' : 'dias'}</span>
+            <span>·</span>
+            <span style={{ color: ease.color }}>Facilidade: {ease.label}</span>
+          </div>
+          {lastDays !== null && (
+            <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
+              Última revisão há {lastDays} {lastDays === 1 ? 'dia' : 'dias'}
+              {rev.last_reviewed && ` (${format(parseISO(rev.last_reviewed), "d 'de' MMM", { locale: ptBR })})`}
+            </p>
           )}
         </div>
 
-        {reviews.length === 0 ? (
-          <div className="rounded-xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="text-3xl mb-2">🎉</div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Nenhuma revisão pendente!</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Você está em dia com suas revisões.</p>
+        <div className="p-5 space-y-3">
+          <div className="p-3 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
+            <p className="font-medium mb-0.5" style={{ color: 'var(--text)' }}>Como foi lembrar deste tópico?</p>
+            <p className="text-xs">Avalie a qualidade da sua memorização. Isso ajusta o intervalo da próxima revisão.</p>
           </div>
-        ) : (
+
           <div className="space-y-2">
-            {reviews.map(rev => {
-              const overdue = rev.next_review ? differenceInDays(new Date(), parseISO(rev.next_review)) : 0
+            {QUALITY_OPTIONS.map(opt => {
+              const nextResult = sm2(opt.value, rev.repetitions, rev.ease_factor, rev.interval_days)
               return (
-                <div
-                  key={rev.id}
-                  className="rounded-xl border flex items-center gap-4 px-4 py-3"
-                  style={{ background: 'var(--surface)', borderColor: doing?.id === rev.id ? 'var(--primary-strong)' : 'var(--border)' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      <span>{rev.topic?.subject?.name}</span>
-                      {overdue > 0 && <span style={{ color: 'var(--danger)' }}>· {overdue}d de atraso</span>}
-                      <span>· {rev.repetitions} repetições</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setDoing(rev)}
-                    className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                    style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
-                  >
-                    Revisar
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>Próximos 7 dias</h2>
-          <div className="space-y-2">
-            {upcoming.map(rev => (
-              <div key={rev.id} className="rounded-xl border flex items-center gap-4 px-4 py-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{rev.topic?.subject?.name}</p>
-                </div>
-                <p className="text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                  {rev.next_review ? format(parseISO(rev.next_review), "d MMM", { locale: ptBR }) : '—'}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Review modal */}
-      {doing && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.8)' }}>
-          <div className="w-full max-w-md rounded-2xl border p-6 space-y-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{doing.topic?.subject?.name}</p>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{doing.topic?.name}</h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
-                Última revisão: {doing.last_reviewed ? format(parseISO(doing.last_reviewed), "d 'de' MMM", { locale: ptBR }) : 'Nunca'}
-                · Intervalo atual: {doing.interval_days} dias
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
-              Avalie sua memorização deste tópico:
-            </div>
-
-            <div className="space-y-2">
-              {QUALITY_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => !saving && submitReview(opt.value)}
+                  onClick={() => !saving && onSubmit(opt.value)}
                   disabled={saving}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all hover:border-opacity-80 disabled:opacity-50"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all disabled:opacity-50"
                   style={{ borderColor: 'var(--border)', background: 'var(--surface-hover)' }}
                 >
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: opt.color }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{opt.label}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{opt.label}</p>
+                      <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>
+                        próxima em {nextResult.interval_days}d
+                      </span>
+                    </div>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
                   </div>
                 </button>
-              ))}
-            </div>
-
-            <button onClick={() => setDoing(null)} className="w-full text-sm" style={{ color: 'var(--text-subtle)' }}>Cancelar</button>
+              )
+            })}
           </div>
+
+          <button onClick={onCancel} className="w-full text-sm py-2" style={{ color: 'var(--text-subtle)' }}>Cancelar</button>
         </div>
-      )}
+      </div>
     </div>
   )
 }
