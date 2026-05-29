@@ -59,13 +59,40 @@ export default function ExamDetailPage() {
   const [saving, setSaving] = useState(false)
   const [logModal, setLogModal] = useState<LogModal | null>(null)
   const [moveTopic, setMoveTopic] = useState<{ topicId: string; currentSubjectId: string; topicName: string } | null>(null)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   useEffect(() => { loadData() }, [id])
+
+  async function persistOrder(items: SubjectWithProgress[]) {
+    // Persist order_index for each exam_subject in parallel
+    await Promise.all(items.map((s, i) =>
+      supabase.from('exam_subjects').update({ order_index: i }).eq('id', s.examSubjectId)
+    ))
+  }
+
+  function reorderSubjects(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return
+    setSubjects(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      // fire-and-forget; UI already updated
+      persistOrder(next)
+      return next
+    })
+  }
+
+  function moveSubject(index: number, direction: -1 | 1) {
+    const target = index + direction
+    if (target < 0 || target >= subjects.length) return
+    reorderSubjects(index, target)
+  }
 
   async function loadData() {
     const [examRes, esRes] = await Promise.all([
       supabase.from('exams').select('*').eq('id', id).single(),
-      supabase.from('exam_subjects').select('*, subject:subjects(*)').eq('exam_id', id),
+      supabase.from('exam_subjects').select('*, subject:subjects(*)').eq('exam_id', id).order('order_index'),
     ])
 
     if (examRes.error) { router.push('/exams'); return }
@@ -270,7 +297,7 @@ export default function ExamDetailPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Matérias</h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Clique para ver os tópicos · use o menu ⋮ para editar</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Clique para ver os tópicos · arraste para reordenar · use o menu ⋮ para editar</p>
           </div>
           <button onClick={() => setShowAddSubject(true)} className="text-xs px-3 py-2 rounded-lg font-medium transition-colors" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
             + Adicionar matéria
@@ -302,10 +329,23 @@ export default function ExamDetailPage() {
           </div>
         ) : (
           <div className="grid gap-3">
-            {subjects.map(subject => (
+            {subjects.map((subject, index) => (
               <SubjectCard
                 key={subject.examSubjectId}
                 subject={subject}
+                index={index}
+                total={subjects.length}
+                isDragging={dragIndex === index}
+                isDragOver={dragOverIndex === index && dragIndex !== index}
+                onDragStart={() => setDragIndex(index)}
+                onDragEnter={() => setDragOverIndex(index)}
+                onDragEnd={() => { setDragIndex(null); setDragOverIndex(null) }}
+                onDrop={() => {
+                  if (dragIndex !== null && dragIndex !== index) reorderSubjects(dragIndex, index)
+                  setDragIndex(null); setDragOverIndex(null)
+                }}
+                onMoveUp={() => moveSubject(index, -1)}
+                onMoveDown={() => moveSubject(index, 1)}
                 expanded={expandedSubject === subject.id}
                 onToggle={() => setExpandedSubject(expandedSubject === subject.id ? null : subject.id)}
                 onRefresh={loadData}
@@ -358,10 +398,22 @@ export default function ExamDetailPage() {
 }
 
 function SubjectCard({
-  subject, expanded, onToggle, onRefresh, onOpenLog,
+  subject, index, total, isDragging, isDragOver,
+  onDragStart, onDragEnter, onDragEnd, onDrop, onMoveUp, onMoveDown,
+  expanded, onToggle, onRefresh, onOpenLog,
   onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic, onToggleTopicComplete,
 }: {
   subject: SubjectWithProgress
+  index: number
+  total: number
+  isDragging: boolean
+  isDragOver: boolean
+  onDragStart: () => void
+  onDragEnter: () => void
+  onDragEnd: () => void
+  onDrop: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
   expanded: boolean
   onToggle: () => void
   onRefresh: () => void
@@ -425,19 +477,35 @@ function SubjectCard({
 
   return (
     <div
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => { e.preventDefault(); onDrop() }}
       className="rounded-2xl border overflow-hidden transition-all"
       style={{
         background: 'var(--surface)',
-        borderColor: expanded ? subject.color : isCompleted ? 'var(--success)' : 'var(--border)',
-        boxShadow: expanded ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-        opacity: isCompleted && !expanded ? 0.85 : 1,
+        borderColor: isDragOver ? 'var(--primary)' : expanded ? subject.color : isCompleted ? 'var(--success)' : 'var(--border)',
+        boxShadow: isDragOver ? 'var(--shadow-lg)' : expanded ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+        opacity: isDragging ? 0.4 : isCompleted && !expanded ? 0.85 : 1,
+        transform: isDragOver ? 'translateY(-2px)' : 'none',
       }}
     >
       <div className="relative">
         {/* Color accent strip */}
         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: subject.color }} />
 
-        <div className="pl-5 pr-3 py-4 flex items-center gap-3">
+        <div className="pl-3 pr-3 py-4 flex items-center gap-2">
+          {/* Drag handle */}
+          <div
+            className="flex flex-col items-center justify-center w-5 cursor-grab active:cursor-grabbing select-none"
+            style={{ color: 'var(--text-subtle)', lineHeight: 1 }}
+            title="Arraste para reordenar"
+          >
+            <span className="text-xs">⋮⋮</span>
+          </div>
+
           <button onClick={onToggle} className="flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               {renaming ? (
@@ -501,9 +569,25 @@ function SubjectCard({
                     ✏️ Renomear
                   </button>
                   <button
+                    onClick={() => { onMoveUp(); setMenuOpen(false) }}
+                    disabled={index === 0}
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    ↑ Mover para cima
+                  </button>
+                  <button
+                    onClick={() => { onMoveDown(); setMenuOpen(false) }}
+                    disabled={index === total - 1}
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    ↓ Mover para baixo
+                  </button>
+                  <button
                     onClick={() => { onToggleComplete(); setMenuOpen(false) }}
                     className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)]"
-                    style={{ color: isCompleted ? 'var(--warning)' : 'var(--success)' }}
+                    style={{ color: isCompleted ? 'var(--warning)' : 'var(--success)', borderTop: '1px solid var(--border)' }}
                   >
                     {isCompleted ? '↶ Desmarcar conclusão' : '✓ Marcar como concluída'}
                   </button>
@@ -636,7 +720,7 @@ function TopicRow({
                 className="text-sm font-medium"
                 style={{
                   color: done ? 'var(--text-muted)' : 'var(--text)',
-                  textDecoration: manuallyComplete ? 'line-through' : 'none',
+                  textDecorationLine: manuallyComplete ? 'line-through' : 'none',
                   textDecorationColor: 'var(--text-subtle)',
                 }}
               >
