@@ -20,11 +20,17 @@ const QUALITY_OPTIONS = [
   { value: 1, label: 'Muito difícil',  color: 'var(--danger)',  desc: 'Não lembrei quase nada — preciso revisar do zero' },
 ]
 
-function easeLabel(ef: number): { label: string; color: string } {
-  if (ef >= 2.5) return { label: 'Fácil',     color: 'var(--success)' }
-  if (ef >= 2.0) return { label: 'Mediano',   color: '#84cc16' }
-  if (ef >= 1.7) return { label: 'Difícil',   color: 'var(--warning)' }
-  return                  { label: 'Crítico',  color: 'var(--danger)' }
+/**
+ * Translates the SM-2 ease_factor into a human-readable DIFFICULTY label.
+ * Higher ease_factor = easier topic = LOWER difficulty.
+ * Returns null when the topic has never been reviewed yet (no data to assess).
+ */
+function difficultyLabel(ef: number, repetitions: number): { label: string; color: string } | null {
+  if (repetitions === 0) return null
+  if (ef >= 2.5) return { label: 'Baixa',   color: 'var(--success)' }
+  if (ef >= 2.0) return { label: 'Média',   color: '#84cc16' }
+  if (ef >= 1.7) return { label: 'Alta',    color: 'var(--warning)' }
+  return                  { label: 'Crítica', color: 'var(--danger)' }
 }
 
 export default function ReviewsPage() {
@@ -120,8 +126,10 @@ export default function ReviewsPage() {
   // Stats
   const stats = useMemo(() => {
     const total = allReviews.length
-    const struggling = allReviews.filter(r => r.ease_factor < 1.7)
-    const mastered = allReviews.filter(r => r.repetitions >= 5 && r.ease_factor >= 2.5)
+    // Only count topics that have actually been reviewed (repetitions > 0)
+    const reviewed = allReviews.filter(r => r.repetitions > 0)
+    const struggling = reviewed.filter(r => r.ease_factor < 1.7)
+    const mastered = reviewed.filter(r => r.repetitions >= 5 && r.ease_factor >= 2.5)
     const avgInterval = allReviews.length ? Math.round(allReviews.reduce((s, r) => s + r.interval_days, 0) / allReviews.length) : 0
     const reviewedThisWeek = recentReviews.filter(l => differenceInDays(today, parseISO(l.studied_at)) <= 7).length
     return { total, struggling, mastered, avgInterval, reviewedThisWeek }
@@ -298,7 +306,7 @@ export default function ReviewsPage() {
             <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Bem fixados</p>
               <p className="text-2xl font-bold mt-1" style={{ color: 'var(--success)' }}>{stats.mastered.length}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>5+ revisões com facilidade alta</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>5+ revisões com dificuldade baixa</p>
             </div>
           </div>
 
@@ -312,12 +320,14 @@ export default function ReviewsPage() {
               <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico com dificuldade no momento.</p>
             ) : (
               <div className="space-y-2">
-                {stats.struggling.map(rev => (
+                {stats.struggling.map(rev => {
+                  const d = difficultyLabel(rev.ease_factor, rev.repetitions)
+                  return (
                   <div key={rev.id} className="rounded-xl border p-3 flex items-center gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--danger)' }}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {rev.topic?.subject?.name} · Facilidade {rev.ease_factor.toFixed(2)} · {rev.repetitions} revisões
+                        {rev.topic?.subject?.name}{d ? ` · Dificuldade ${d.label}` : ''} · {rev.repetitions} revisões
                       </p>
                     </div>
                     <button
@@ -328,7 +338,8 @@ export default function ReviewsPage() {
                       Revisar agora
                     </button>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -361,7 +372,7 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
   onStart: () => void
   onPostpone: (days: number) => void
 }) {
-  const ease = easeLabel(rev.ease_factor)
+  const difficulty = difficultyLabel(rev.ease_factor, rev.repetitions)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const days = rev.next_review ? differenceInDays(parseISO(rev.next_review), today) : 0
@@ -405,8 +416,12 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
               {rev.topic.subject.name}
             </span>
           )}
-          <span>·</span>
-          <span style={{ color: ease.color }}>Facilidade: {ease.label}</span>
+          {difficulty && (
+            <>
+              <span>·</span>
+              <span style={{ color: difficulty.color }}>Dificuldade: {difficulty.label}</span>
+            </>
+          )}
           <span>·</span>
           <span>{rev.repetitions} {rev.repetitions === 1 ? 'revisão' : 'revisões'}</span>
           {lastDays !== null && (
@@ -457,7 +472,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
   onCancel: () => void
   onSubmit: (q: number) => void
 }) {
-  const ease = easeLabel(rev.ease_factor)
+  const difficulty = difficultyLabel(rev.ease_factor, rev.repetitions)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const lastDays = rev.last_reviewed ? differenceInDays(today, parseISO(rev.last_reviewed)) : null
@@ -479,8 +494,12 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
             <span>{rev.repetitions} {rev.repetitions === 1 ? 'revisão' : 'revisões'}</span>
             <span>·</span>
             <span>Intervalo atual: {rev.interval_days} {rev.interval_days === 1 ? 'dia' : 'dias'}</span>
-            <span>·</span>
-            <span style={{ color: ease.color }}>Facilidade: {ease.label}</span>
+            {difficulty && (
+              <>
+                <span>·</span>
+                <span style={{ color: difficulty.color }}>Dificuldade: {difficulty.label}</span>
+              </>
+            )}
           </div>
           {lastDays !== null && (
             <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
