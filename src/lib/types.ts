@@ -75,7 +75,8 @@ export interface RevisionSchedule {
 export interface CalendarPlan {
   id: string
   planned_date: string
-  topic_id: string
+  topic_id: string | null
+  subject_id: string | null
   activity_type: ActivityType
   status: PlanStatus
   original_date: string | null
@@ -83,7 +84,8 @@ export interface CalendarPlan {
   order_index: number
   created_at: string
   updated_at: string
-  topic?: Topic & { subject?: Subject }
+  topic?: (Topic & { subject?: Subject }) | null
+  subject?: Subject | null
 }
 
 export interface TopicProgress {

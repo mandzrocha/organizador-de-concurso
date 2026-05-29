@@ -7,15 +7,20 @@ import { isSupabaseConfigured } from '@/lib/config'
 import { format, addDays, startOfWeek, parseISO, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-type PlanWithTopic = CalendarPlan & { topic: Topic & { subject: Subject } }
+type PlanLoaded = CalendarPlan & {
+  topic?: (Topic & { subject?: Subject }) | null
+  subject?: Subject | null
+}
 
 export default function CalendarPage() {
   const supabase = createClient()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
-  const [plans, setPlans] = useState<PlanWithTopic[]>([])
+  const [plans, setPlans] = useState<PlanLoaded[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState<string | null>(null) // date string
+  const [showDayDetail, setShowDayDetail] = useState<string | null>(null) // date string
   const [topics, setTopics] = useState<(Topic & { subject: Subject })[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [generating, setGenerating] = useState(false)
   const [showWizard, setShowWizard] = useState(false)
   const [genError, setGenError] = useState('')
@@ -34,17 +39,18 @@ export default function CalendarPage() {
     const to = weekDays[6].toISOString().split('T')[0]
     const { data } = await supabase
       .from('calendar_plans')
-      .select('*, topic:topics(*, subject:subjects(*))')
+      .select('*, topic:topics(*, subject:subjects(*)), subject:subjects(*)')
       .gte('planned_date', from)
       .lte('planned_date', to)
       .order('order_index')
-    setPlans((data || []) as PlanWithTopic[])
+    setPlans((data || []) as PlanLoaded[])
     setLoading(false)
   }, [weekStart])
 
   useEffect(() => {
     loadPlans()
     loadTopics()
+    loadSubjects()
   }, [loadPlans])
 
   async function loadTopics() {
@@ -53,6 +59,11 @@ export default function CalendarPage() {
       .select('*, subject:subjects(*)')
       .order('name')
     setTopics((data || []) as any)
+  }
+
+  async function loadSubjects() {
+    const { data } = await supabase.from('subjects').select('*').order('name')
+    setSubjects(data || [])
   }
 
   async function updateStatus(planId: string, status: PlanStatus) {
@@ -71,11 +82,15 @@ export default function CalendarPage() {
     } else {
       await supabase.from('calendar_plans').update({ status }).eq('id', planId)
       if (status === 'done') {
-        await supabase.from('study_logs').insert({
-          topic_id: plan.topic_id,
-          activity_type: plan.activity_type,
-          studied_at: plan.planned_date,
-        })
+        // Only log if this is a topic-level plan; subject-level plans are aggregate
+        // and not individually attached to study_logs (would need to log every topic)
+        if (plan.topic_id) {
+          await supabase.from('study_logs').insert({
+            topic_id: plan.topic_id,
+            activity_type: plan.activity_type,
+            studied_at: plan.planned_date,
+          })
+        }
       }
     }
     loadPlans()
@@ -144,38 +159,54 @@ export default function CalendarPage() {
           const dayPlansArr = dayPlans(day)
           const today = isToday(day)
 
+          const doneCount = dayPlansArr.filter(p => p.status === 'done').length
           return (
-            <div key={dayStr} className="min-h-48 rounded-xl border flex flex-col" style={{ background: 'var(--surface)', borderColor: today ? 'var(--primary-strong)' : 'var(--border)' }}>
-              {/* Day header */}
-              <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div
+              key={dayStr}
+              className="min-h-48 rounded-xl border flex flex-col transition-shadow"
+              style={{ background: 'var(--surface)', borderColor: today ? 'var(--primary-strong)' : 'var(--border)' }}
+            >
+              {/* Day header - clickable */}
+              <button
+                onClick={() => setShowDayDetail(dayStr)}
+                className="px-3 py-2 border-b text-left transition-colors hover:bg-[var(--surface-hover)]"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {format(day, 'EEE', { locale: ptBR })}
                 </p>
-                <p
-                  className="text-lg font-semibold leading-none mt-0.5"
-                  style={{ color: today ? 'var(--primary-soft-text)' : 'var(--text)' }}
-                >
-                  {format(day, 'd')}
-                </p>
-              </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <p
+                    className="text-lg font-semibold leading-none mt-0.5"
+                    style={{ color: today ? 'var(--primary-soft-text)' : 'var(--text)' }}
+                  >
+                    {format(day, 'd')}
+                  </p>
+                  {dayPlansArr.length > 0 && (
+                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-subtle)' }}>
+                      {doneCount}/{dayPlansArr.length}
+                    </span>
+                  )}
+                </div>
+              </button>
 
-              {/* Plans */}
-              <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
+              {/* Plans (also click to open detail) */}
+              <button
+                onClick={() => setShowDayDetail(dayStr)}
+                className="flex-1 p-2 space-y-1.5 overflow-y-auto text-left"
+              >
                 {dayPlansArr.map(plan => (
-                  <PlanItem
-                    key={plan.id}
-                    plan={plan}
-                    onDone={() => updateStatus(plan.id, 'done')}
-                    onSkip={() => updateStatus(plan.id, 'skipped')}
-                    onDelete={() => deletePlan(plan.id)}
-                  />
+                  <PlanItem key={plan.id} plan={plan} />
                 ))}
-              </div>
+                {dayPlansArr.length === 0 && (
+                  <p className="text-xs text-center py-3" style={{ color: 'var(--text-subtle)' }}>vazio</p>
+                )}
+              </button>
 
               {/* Add button */}
               <button
-                onClick={() => setShowAddModal(dayStr)}
-                className="m-2 mt-0 py-1 rounded-lg text-xs border border-dashed transition-colors hover:border-indigo-500"
+                onClick={(e) => { e.stopPropagation(); setShowAddModal(dayStr) }}
+                className="m-2 mt-0 py-1 rounded-lg text-xs border border-dashed transition-colors"
                 style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
               >
                 + planejar
@@ -196,17 +227,33 @@ export default function CalendarPage() {
         />
       )}
 
+      {/* Day detail modal */}
+      {showDayDetail && (
+        <DayDetailModal
+          date={showDayDetail}
+          plans={plans.filter(p => p.planned_date === showDayDetail)}
+          onClose={() => setShowDayDetail(null)}
+          onDone={(id) => updateStatus(id, 'done')}
+          onUndone={(id) => updateStatus(id, 'planned')}
+          onSkip={(id) => updateStatus(id, 'skipped')}
+          onDelete={(id) => deletePlan(id)}
+          onAdd={() => { setShowAddModal(showDayDetail); setShowDayDetail(null) }}
+        />
+      )}
+
       {/* Add plan modal */}
       {showAddModal && (
         <AddPlanModal
           date={showAddModal}
           topics={topics}
+          subjects={subjects}
           onClose={() => setShowAddModal(null)}
-          onSave={async (topicId, activityType, notes) => {
+          onSave={async (target, activityType, notes) => {
             const existing = plans.filter(p => p.planned_date === showAddModal)
             await supabase.from('calendar_plans').insert({
               planned_date: showAddModal,
-              topic_id: topicId,
+              topic_id: target.kind === 'topic' ? target.id : null,
+              subject_id: target.kind === 'subject' ? target.id : null,
               activity_type: activityType,
               notes,
               order_index: existing.length,
@@ -220,25 +267,170 @@ export default function CalendarPage() {
   )
 }
 
-function PlanItem({ plan, onDone, onSkip, onDelete }: {
-  plan: PlanWithTopic
-  onDone: () => void
-  onSkip: () => void
-  onDelete: () => void
+function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDelete, onAdd }: {
+  date: string
+  plans: PlanLoaded[]
+  onClose: () => void
+  onDone: (id: string) => void
+  onUndone: (id: string) => void
+  onSkip: (id: string) => void
+  onDelete: (id: string) => void
+  onAdd: () => void
 }) {
-  const [showActions, setShowActions] = useState(false)
+  const parsedDate = parseISO(date)
+  const todayMatch = isSameDay(parsedDate, new Date())
+  const doneCount = plans.filter(p => p.status === 'done').length
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-xl rounded-2xl border overflow-hidden flex flex-col" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)', maxHeight: '85vh' }}>
+        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-medium" style={{ color: 'var(--primary)' }}>{format(parsedDate, "EEEE", { locale: ptBR })}{todayMatch ? ' · Hoje' : ''}</p>
+              <h2 className="text-lg font-semibold mt-0.5" style={{ color: 'var(--text)' }}>{format(parsedDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</h2>
+              {plans.length > 0 && (
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {doneCount}/{plans.length} {plans.length === 1 ? 'plano concluído' : 'planos concluídos'}
+                </p>
+              )}
+            </div>
+            <button onClick={onClose} className="text-lg" style={{ color: 'var(--text-subtle)' }}>✕</button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+          {plans.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-3xl mb-2 opacity-40">📅</div>
+              <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhum plano para este dia.</p>
+            </div>
+          ) : (
+            plans.map(plan => {
+              const subject = plan.topic?.subject || plan.subject
+              const isDone = plan.status === 'done'
+              const isSkipped = plan.status === 'skipped'
+              const isSubjectLevel = !plan.topic_id && plan.subject_id
+              return (
+                <div
+                  key={plan.id}
+                  className="rounded-xl border p-3 flex items-center gap-3"
+                  style={{
+                    background: isDone ? 'var(--success-soft)' : 'var(--surface-hover)',
+                    borderColor: isDone ? 'var(--success)' : 'var(--border)',
+                    opacity: isSkipped ? 0.6 : 1,
+                    borderLeft: subject ? `4px solid ${subject.color}` : undefined,
+                  }}
+                >
+                  <button
+                    onClick={() => isDone ? onUndone(plan.id) : onDone(plan.id)}
+                    className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 border"
+                    style={{
+                      background: isDone ? 'var(--success)' : 'transparent',
+                      borderColor: isDone ? 'var(--success)' : 'var(--border-strong)',
+                    }}
+                    title={isDone ? 'Marcar como pendente' : 'Concluir'}
+                  >
+                    {isDone && <span className="text-xs text-white">✓</span>}
+                  </button>
+
+                  <span className="text-lg flex-shrink-0">{ACTIVITY_ICONS[plan.activity_type]}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p
+                        className="text-sm font-medium"
+                        style={{
+                          color: isDone ? 'var(--success)' : 'var(--text)',
+                          textDecorationLine: isDone ? 'line-through' : 'none',
+                        }}
+                      >
+                        {plan.topic?.name || subject?.name}
+                      </p>
+                      {isSubjectLevel && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                          matéria completa
+                        </span>
+                      )}
+                      {plan.original_date && (
+                        <span className="text-xs" style={{ color: 'var(--warning)' }}>↩ reagendado</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                      <span>{ACTIVITY_LABELS[plan.activity_type]}</span>
+                      {!isSubjectLevel && subject && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: subject.color }} />
+                            {subject.name}
+                          </span>
+                        </>
+                      )}
+                      {plan.notes && (
+                        <>
+                          <span>·</span>
+                          <span className="italic">{plan.notes}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {!isDone && !isSkipped && (
+                      <button
+                        onClick={() => onSkip(plan.id)}
+                        className="text-xs px-2 py-1 rounded-md"
+                        style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}
+                        title="Pular (reagendar amanhã)"
+                      >
+                        ↩
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onDelete(plan.id)}
+                      className="text-xs px-2 py-1 rounded-md"
+                      style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
+                      title="Excluir"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={onAdd}
+            className="w-full py-2.5 rounded-xl text-sm font-medium"
+            style={{ background: 'var(--primary-strong)', color: '#fff' }}
+          >
+            + Adicionar plano para este dia
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlanItem({ plan }: { plan: PlanLoaded }) {
   const isDone = plan.status === 'done'
   const isSkipped = plan.status === 'skipped'
+  const isSubjectLevel = !plan.topic_id && plan.subject_id
+  const subject = plan.topic?.subject || plan.subject
+  const title = plan.topic?.name || subject?.name || '?'
 
   return (
     <div
-      className="rounded-lg px-2 py-1.5 relative group cursor-pointer"
+      className="rounded-lg px-2 py-1.5 relative"
       style={{
         background: isDone ? 'var(--success-soft)' : isSkipped ? 'var(--surface-hover)' : 'var(--surface-soft)',
         opacity: isSkipped ? 0.5 : 1,
+        borderLeft: subject ? `3px solid ${subject.color}` : undefined,
       }}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
     >
       {plan.original_date && (
         <div className="text-xs mb-0.5" style={{ color: 'var(--warning)' }}>↩ reagendado</div>
@@ -246,51 +438,62 @@ function PlanItem({ plan, onDone, onSkip, onDelete }: {
       <div className="flex items-start gap-1">
         <span className="text-xs mt-0.5">{ACTIVITY_ICONS[plan.activity_type]}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs leading-tight truncate" style={{ color: isDone ? 'var(--success)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none' }}>
-            {plan.topic?.name}
+          <p
+            className="text-xs leading-tight truncate font-medium"
+            style={{
+              color: isDone ? 'var(--success)' : 'var(--text)',
+              textDecorationLine: isDone ? 'line-through' : 'none',
+            }}
+          >
+            {title}
           </p>
-          <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{plan.topic?.subject?.name}</p>
+          {!isSubjectLevel && subject && (
+            <p className="text-xs truncate" style={{ color: 'var(--text-subtle)' }}>{subject.name}</p>
+          )}
+          {isSubjectLevel && (
+            <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>matéria completa</p>
+          )}
         </div>
       </div>
-      {showActions && !isDone && (
-        <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg" style={{ background: 'rgba(15,15,19,0.9)' }}>
-          <button onClick={onDone} className="text-xs px-2 py-1 rounded font-medium" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>✓</button>
-          <button onClick={onSkip} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>↩</button>
-          <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>✕</button>
-        </div>
-      )}
     </div>
   )
 }
 
-function AddPlanModal({ date, topics, onClose, onSave }: {
+type TargetSelection = { kind: 'topic' | 'subject'; id: string }
+
+function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
   date: string
   topics: (Topic & { subject: Subject })[]
+  subjects: Subject[]
   onClose: () => void
-  onSave: (topicId: string, activityType: ActivityType, notes: string) => Promise<void>
+  onSave: (target: TargetSelection, activityType: ActivityType, notes: string) => Promise<void>
 }) {
-  const [topicId, setTopicId] = useState('')
+  const [mode, setMode] = useState<'topic' | 'subject'>('topic')
+  const [target, setTarget] = useState<TargetSelection | null>(null)
   const [activity, setActivity] = useState<ActivityType>('video')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
 
-  const filtered = topics.filter(t =>
+  const filteredTopics = topics.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.subject?.name.toLowerCase().includes(search.toLowerCase())
   )
+  const filteredSubjects = subjects.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase())
+  )
 
   async function handleSave() {
-    if (!topicId) return
+    if (!target) return
     setSaving(true)
-    await onSave(topicId, activity, notes)
+    await onSave(target, activity, notes)
     setSaving(false)
   }
 
   const parsedDate = parseISO(date)
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-md rounded-2xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
@@ -299,26 +502,84 @@ function AddPlanModal({ date, topics, onClose, onSave }: {
           <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}>✕</button>
         </div>
 
+        {/* Mode toggle */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => { setMode('topic'); setTarget(null) }}
+            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all"
+            style={{
+              background: mode === 'topic' ? 'var(--primary-soft)' : 'var(--surface-hover)',
+              borderColor: mode === 'topic' ? 'var(--primary)' : 'var(--border)',
+              color: mode === 'topic' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+            }}
+          >
+            📍 Tópico específico
+          </button>
+          <button
+            onClick={() => { setMode('subject'); setTarget(null) }}
+            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all"
+            style={{
+              background: mode === 'subject' ? 'var(--primary-soft)' : 'var(--surface-hover)',
+              borderColor: mode === 'subject' ? 'var(--primary)' : 'var(--border)',
+              color: mode === 'subject' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+            }}
+          >
+            📚 Matéria inteira
+          </button>
+        </div>
+
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Tópico</label>
-          <input type="text" placeholder="Buscar tópico..." value={search} onChange={e => setSearch(e.target.value)} className="mb-2" />
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            {mode === 'topic' ? 'Tópico' : 'Matéria'}
+          </label>
+          <input
+            type="text"
+            placeholder={mode === 'topic' ? 'Buscar tópico...' : 'Buscar matéria...'}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="mb-2"
+          />
           <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border" style={{ borderColor: 'var(--border)' }}>
-            {filtered.map(topic => (
-              <button
-                key={topic.id}
-                onClick={() => setTopicId(topic.id)}
-                className="w-full text-left px-3 py-2 text-sm transition-colors"
-                style={{
-                  background: topicId === topic.id ? 'var(--primary-soft)' : 'transparent',
-                  color: topicId === topic.id ? 'var(--primary-soft-text)' : 'var(--text)',
-                }}
-              >
-                <span>{topic.name}</span>
-                <span className="text-xs ml-2" style={{ color: 'var(--text-subtle)' }}>{topic.subject?.name}</span>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico encontrado</p>
+            {mode === 'topic' ? (
+              <>
+                {filteredTopics.map(topic => (
+                  <button
+                    key={topic.id}
+                    onClick={() => setTarget({ kind: 'topic', id: topic.id })}
+                    className="w-full text-left px-3 py-2 text-sm transition-colors"
+                    style={{
+                      background: target?.kind === 'topic' && target.id === topic.id ? 'var(--primary-soft)' : 'transparent',
+                      color: target?.kind === 'topic' && target.id === topic.id ? 'var(--primary-soft-text)' : 'var(--text)',
+                    }}
+                  >
+                    <span>{topic.name}</span>
+                    <span className="text-xs ml-2" style={{ color: 'var(--text-subtle)' }}>{topic.subject?.name}</span>
+                  </button>
+                ))}
+                {filteredTopics.length === 0 && (
+                  <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico encontrado</p>
+                )}
+              </>
+            ) : (
+              <>
+                {filteredSubjects.map(sub => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setTarget({ kind: 'subject', id: sub.id })}
+                    className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
+                    style={{
+                      background: target?.kind === 'subject' && target.id === sub.id ? 'var(--primary-soft)' : 'transparent',
+                      color: target?.kind === 'subject' && target.id === sub.id ? 'var(--primary-soft-text)' : 'var(--text)',
+                    }}
+                  >
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sub.color }} />
+                    <span>{sub.name}</span>
+                  </button>
+                ))}
+                {filteredSubjects.length === 0 && (
+                  <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhuma matéria encontrada</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -352,7 +613,7 @@ function AddPlanModal({ date, topics, onClose, onSave }: {
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
           <button
             onClick={handleSave}
-            disabled={!topicId || saving}
+            disabled={!target || saving}
             className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
             style={{ background: 'var(--primary-strong)', color: '#fff' }}
           >
