@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if git cherry -v 2>/dev/null | grep -q '^+'; then git push; fi",
+            "shell": "bash",
+            "statusMessage": "Pushing commits...",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

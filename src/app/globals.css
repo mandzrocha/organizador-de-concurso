@@ -1,46 +1,101 @@
 @import "tailwindcss";
 
+/* ========== DARK (default) ========== */
 :root {
-  --background: #0f0f13;
-  --foreground: #e8e8f0;
-  --card: #17171f;
-  --card-border: #2a2a38;
-  --muted: #8888a0;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
+  --bg: #0f0f13;
+  --bg-elevated: #12121a;
+  --surface: #17171f;
+  --surface-hover: #1e1e28;
+  --surface-soft: #1a1a24;
+  --border: #2a2a38;
+  --border-strong: #3a3a4e;
+
+  --text: #e8e8f0;
+  --text-muted: #8888a0;
+  --text-subtle: #555568;
+
+  --primary: #a78bfa;          /* violet-400 - destaque em fundo escuro */
+  --primary-strong: #8b5cf6;   /* violet-500 - botões CTA */
+  --primary-hover: #7c3aed;    /* violet-600 - hover */
+  --primary-soft: #1e1b3a;     /* fundo de badge violeta */
+  --primary-soft-text: #c4b5fd;
+
+  --success: #4ade80;
+  --success-soft: #0f1f14;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --warning: #fb923c;
+  --warning-soft: #2a1a0a;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* ========== LIGHT ========== */
+[data-theme="light"] {
+  --bg: #fafaff;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f7f5ff;
+  --surface-soft: #faf9ff;
+  --border: #ebe9f5;
+  --border-strong: #d8d4ed;
+
+  --text: #1a1530;
+  --text-muted: #6b6985;
+  --text-subtle: #a3a1b8;
+
+  --primary: #7c3aed;          /* violet-600 - roxo vibrante */
+  --primary-strong: #6d28d9;   /* violet-700 */
+  --primary-hover: #5b21b6;    /* violet-800 */
+  --primary-soft: #f3eeff;     /* fundo de badge violeta */
+  --primary-soft-text: #6d28d9;
+
+  --success: #16a34a;
+  --success-soft: #ecfdf5;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --warning: #ea580c;
+  --warning-soft: #fff7ed;
+
+  --shadow-sm: 0 1px 2px rgba(124, 58, 237, 0.06);
+  --shadow-md: 0 4px 16px rgba(124, 58, 237, 0.08);
+  --shadow-lg: 0 12px 32px rgba(124, 58, 237, 0.12);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 input, textarea, select {
-  background: #1e1e28;
-  border: 1px solid #2a2a38;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--foreground);
+  color: var(--text);
   padding: 8px 12px;
   width: 100%;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-input::placeholder, textarea::placeholder {
-  color: var(--muted);
-}
+input::placeholder, textarea::placeholder { color: var(--text-subtle); }
 
-button {
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
+button { cursor: pointer; transition: all 0.15s ease; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a38; border-radius: 3px; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); }
