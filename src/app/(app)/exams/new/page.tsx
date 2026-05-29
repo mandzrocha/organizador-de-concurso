@@ -29,8 +29,14 @@ export default function NewExamPage() {
   const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
   useEffect(() => {
-    if (searchParams.get('watching') === '1') {
-      setExamInfo(p => ({ ...p, is_watching: true }))
+    const watching = searchParams.get('watching') === '1'
+    const nameParam = searchParams.get('name')
+    if (watching || nameParam) {
+      setExamInfo(p => ({
+        ...p,
+        is_watching: watching || p.is_watching,
+        name: nameParam || p.name,
+      }))
     }
   }, [searchParams])
 

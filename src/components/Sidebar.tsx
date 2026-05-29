@@ -9,6 +9,7 @@ const NAV = [
   { href: '/exams', icon: '📋', label: 'Concursos' },
   { href: '/calendar', icon: '📅', label: 'Calendário' },
   { href: '/reviews', icon: '🔁', label: 'Revisões' },
+  { href: '/news', icon: '📰', label: 'Notícias' },
 ]
 
 export function Sidebar() {
