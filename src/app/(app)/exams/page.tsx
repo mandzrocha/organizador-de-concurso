@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Exam } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
@@ -17,6 +18,7 @@ export default function ExamsPage() {
   const [exams, setExams] = useState<ExamWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => { loadExams() }, [])
 
@@ -54,6 +56,12 @@ export default function ExamsPage() {
   }
 
   async function promoteToStudying(examId: string) {
+    const exam = exams.find(e => e.id === examId)
+    // If exam has no subjects yet, send to edital tab so user can attach one
+    if (exam && exam.subject_count === 0) {
+      router.push(`/exams/${examId}/edit?tab=edital`)
+      return
+    }
     await supabase.from('exams').update({ is_watching: false }).eq('id', examId)
     loadExams()
   }

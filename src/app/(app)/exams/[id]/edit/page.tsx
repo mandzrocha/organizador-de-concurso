@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Exam, SUBJECT_COLORS } from '@/lib/types'
@@ -21,12 +21,14 @@ interface ExtractedSubject {
 export default function EditExamPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<TabKey>('info')
+  const [tab, setTab] = useState<TabKey>(() => (searchParams.get('tab') === 'edital' ? 'edital' : 'info'))
+  const [subjectCount, setSubjectCount] = useState<number>(0)
 
   // Info form
   const [form, setForm] = useState({ name: '', organization: '', exam_date: '', description: '', is_primary: false, pre_edital: false, is_watching: false })
@@ -52,9 +54,13 @@ export default function EditExamPage() {
 
   async function loadExam() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
-    const { data } = await supabase.from('exams').select('*').eq('id', id).single()
+    const [{ data }, { count }] = await Promise.all([
+      supabase.from('exams').select('*').eq('id', id).single(),
+      supabase.from('exam_subjects').select('*', { count: 'exact', head: true }).eq('exam_id', id),
+    ])
     if (!data) { router.push('/exams'); return }
     setExam(data)
+    setSubjectCount(count ?? 0)
     setForm({
       name: data.name,
       organization: data.organization || '',
@@ -269,7 +275,7 @@ export default function EditExamPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-        {([['info', 'Informações'], ['edital', form.is_watching ? 'Anexar edital' : 'Atualizar edital']] as const).map(([key, label]) => (
+        {([['info', 'Informações'], ['edital', (form.is_watching || subjectCount === 0) ? 'Anexar edital' : 'Atualizar edital']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -314,6 +320,27 @@ export default function EditExamPage() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Aguardando edital sair</p>
             </button>
           </div>
+
+          {/* Warning: studying mode without an edital attached */}
+          {!form.is_watching && subjectCount === 0 && (
+            <div className="rounded-xl border p-4 flex items-start gap-3" style={{ background: 'var(--warning-soft)', borderColor: 'var(--warning)' }}>
+              <span className="text-xl flex-shrink-0">📂</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--warning)' }}>Nenhum edital anexado ainda</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Para estudar você precisa de matérias e tópicos cadastrados. Anexe o PDF ou fotos do edital — pode ser o anterior se o novo ainda não saiu.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTab('edital')}
+                  className="mt-2 text-xs px-3 py-1.5 rounded-lg font-medium"
+                  style={{ background: 'var(--warning)', color: '#fff' }}
+                >
+                  📎 Anexar edital agora →
+                </button>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Nome do concurso *</label>
@@ -383,7 +410,7 @@ export default function EditExamPage() {
       )}
 
       {/* Tab: Anexar edital (watching) OR Atualizar edital (studying) */}
-      {tab === 'edital' && form.is_watching && (
+      {tab === 'edital' && (form.is_watching || subjectCount === 0) && (
         <WatchingEditalFlow
           files={files}
           extracted={extracted}
@@ -400,7 +427,7 @@ export default function EditExamPage() {
         />
       )}
 
-      {tab === 'edital' && !form.is_watching && (
+      {tab === 'edital' && !form.is_watching && subjectCount > 0 && (
         <div className="space-y-4">
           <div className="rounded-xl border p-5 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div>
