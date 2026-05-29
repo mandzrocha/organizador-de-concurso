@@ -62,10 +62,11 @@ export default function DashboardPage() {
 
       const { data: topics } = await supabase
         .from('topics')
-        .select('id')
+        .select('id, completed_at')
         .in('subject_id', subjectIds.length ? subjectIds : ['none'])
 
-      const topicIds = (topics || []).map(t => t.id)
+      const topicList = topics || []
+      const topicIds = topicList.map(t => t.id)
 
       const { data: logs } = await supabase
         .from('study_logs')
@@ -78,9 +79,9 @@ export default function DashboardPage() {
         completedByTopic[log.topic_id].add(log.activity_type)
       }
 
-      const totalProgress = topicIds.reduce((sum, id) => {
-        const done = completedByTopic[id]?.size || 0
-        return sum + getTopicCompletionPercent([...( completedByTopic[id] || [])] as any)
+      const totalProgress = topicList.reduce((sum, t) => {
+        const acts = [...(completedByTopic[t.id] || [])] as any
+        return sum + getTopicCompletionPercent(acts, t.completed_at)
       }, 0)
 
       return {

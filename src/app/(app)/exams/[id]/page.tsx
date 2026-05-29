@@ -103,7 +103,7 @@ export default function ExamDetailPage() {
         return {
           ...topic,
           completedActivities: completed,
-          percent: getTopicCompletionPercent(completed),
+          percent: getTopicCompletionPercent(completed, topic.completed_at),
           lastExerciseScore: lastExerciseByTopic[topic.id] ?? null,
         }
       })
@@ -178,6 +178,25 @@ export default function ExamDetailPage() {
   async function renameTopic(topicId: string, newName: string) {
     if (!newName.trim()) return
     await supabase.from('topics').update({ name: newName.trim() }).eq('id', topicId)
+    loadData()
+  }
+
+  async function toggleTopicComplete(topicId: string, currentCompletedAt: string | null) {
+    const value = currentCompletedAt ? null : new Date().toISOString().split('T')[0]
+    await supabase.from('topics').update({ completed_at: value }).eq('id', topicId)
+
+    // If marking complete and no revision schedule exists, create one so reviews continue
+    if (value) {
+      const { data: existing } = await supabase.from('revision_schedule').select('id').eq('topic_id', topicId).maybeSingle()
+      if (!existing) {
+        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+        await supabase.from('revision_schedule').insert({
+          topic_id: topicId,
+          next_review: tomorrow.toISOString().split('T')[0],
+          last_reviewed: new Date().toISOString().split('T')[0],
+        })
+      }
+    }
     loadData()
   }
 
@@ -297,6 +316,7 @@ export default function ExamDetailPage() {
                 onMoveTopic={(topicId, topicName) => setMoveTopic({ topicId, currentSubjectId: subject.id, topicName })}
                 onRenameTopic={renameTopic}
                 onDeleteTopic={deleteTopic}
+                onToggleTopicComplete={toggleTopicComplete}
               />
             ))}
           </div>
@@ -339,7 +359,7 @@ export default function ExamDetailPage() {
 
 function SubjectCard({
   subject, expanded, onToggle, onRefresh, onOpenLog,
-  onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic,
+  onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic, onToggleTopicComplete,
 }: {
   subject: SubjectWithProgress
   expanded: boolean
@@ -352,6 +372,7 @@ function SubjectCard({
   onMoveTopic: (topicId: string, topicName: string) => void
   onRenameTopic: (topicId: string, newName: string) => void
   onDeleteTopic: (topicId: string, topicName: string) => void
+  onToggleTopicComplete: (topicId: string, currentCompletedAt: string | null) => void
 }) {
   const supabase = createClient()
   const [showAddTopic, setShowAddTopic] = useState(false)
@@ -383,7 +404,7 @@ function SubjectCard({
   }
 
   const completedTopics = subject.topics.filter(t => t.percent === 100).length
-  const startedTopics = subject.topics.filter(t => t.completedActivities.length > 0).length
+  const startedTopics = subject.topics.filter(t => t.completedActivities.length > 0 || t.completed_at).length
   const isCompleted = !!subject.completedAt
 
   // Smart status label
@@ -522,6 +543,7 @@ function SubjectCard({
                   onMove={() => onMoveTopic(topic.id, topic.name)}
                   onRename={(newName) => onRenameTopic(topic.id, newName)}
                   onDelete={() => onDeleteTopic(topic.id, topic.name)}
+                  onToggleComplete={() => onToggleTopicComplete(topic.id, topic.completed_at)}
                 />
               ))}
             </ul>
@@ -557,16 +579,19 @@ function SubjectCard({
 }
 
 function TopicRow({
-  topic, onLog, onMove, onRename, onDelete,
+  topic, onLog, onMove, onRename, onDelete, onToggleComplete,
 }: {
   topic: TopicWithProgress
   onLog: () => void
   onMove: () => void
   onRename: (newName: string) => void
   onDelete: () => void
+  onToggleComplete: () => void
 }) {
   const activities: ActivityType[] = ['video', 'reading', 'exercises', 'review']
-  const done = topic.percent === 100
+  const manuallyComplete = !!topic.completed_at
+  const fullyDone = topic.completedActivities.length === 4
+  const done = manuallyComplete || fullyDone
   const started = topic.completedActivities.length > 0
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -583,102 +608,133 @@ function TopicRow({
   }, [menuOpen])
 
   return (
-    <li className="px-5 py-3 flex items-center gap-4 transition-colors hover:bg-[var(--surface-hover)]" style={{ borderBottom: '1px solid var(--border)' }}>
-      <div
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ background: done ? 'var(--success)' : started ? 'var(--warning)' : 'var(--border-strong)' }}
-      />
+    <li className="px-5 py-4 transition-colors hover:bg-[var(--surface-hover)]" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="flex items-start gap-4">
+        <div
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"
+          style={{ background: done ? 'var(--success)' : started ? 'var(--warning)' : 'var(--border-strong)' }}
+        />
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          {renaming ? (
-            <input
-              type="text"
-              value={renameValue}
-              onChange={e => setRenameValue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { onRename(renameValue); setRenaming(false) }
-                if (e.key === 'Escape') { setRenameValue(topic.name); setRenaming(false) }
-              }}
-              onBlur={() => { onRename(renameValue); setRenaming(false) }}
-              autoFocus
-              className="text-sm"
-              style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text)', flex: 1 }}
-            />
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--text)' }}>{topic.name}</p>
-          )}
-          {topic.lastExerciseScore !== null && (
-            <span
-              className="text-xs px-1.5 py-0.5 rounded-md font-medium tabular-nums"
-              style={{
-                background: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger-soft)' : 'var(--success-soft)',
-                color: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger)' : 'var(--success)',
-              }}
-            >
-              ✏️ {topic.lastExerciseScore}%
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 mt-1.5">
-          {activities.map(act => {
-            const isDone = topic.completedActivities.includes(act)
-            return (
-              <span
-                key={act}
-                title={ACTIVITY_LABELS[act]}
-                className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {renaming ? (
+              <input
+                type="text"
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { onRename(renameValue); setRenaming(false) }
+                  if (e.key === 'Escape') { setRenameValue(topic.name); setRenaming(false) }
+                }}
+                onBlur={() => { onRename(renameValue); setRenaming(false) }}
+                autoFocus
+                className="text-sm"
+                style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text)', flex: 1 }}
+              />
+            ) : (
+              <p
+                className="text-sm font-medium"
                 style={{
-                  background: isDone ? 'var(--success-soft)' : 'transparent',
-                  color: isDone ? 'var(--success)' : 'var(--text-subtle)',
-                  border: `1px solid ${isDone ? 'transparent' : 'var(--border)'}`,
-                  opacity: isDone ? 1 : 0.6,
+                  color: done ? 'var(--text-muted)' : 'var(--text)',
+                  textDecoration: manuallyComplete ? 'line-through' : 'none',
+                  textDecorationColor: 'var(--text-subtle)',
                 }}
               >
-                <span>{ACTIVITY_ICONS[act]}</span>
-                <span>{ACTIVITY_LABELS[act]}</span>
+                {topic.name}
+              </p>
+            )}
+
+            {manuallyComplete && (
+              <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
+                ✓ Concluído
               </span>
-            )
-          })}
+            )}
+            {topic.lastExerciseScore !== null && (
+              <span
+                className="text-xs px-2 py-0.5 rounded-md font-medium tabular-nums"
+                style={{
+                  background: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger-soft)' : 'var(--success-soft)',
+                  color: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger)' : 'var(--success)',
+                }}
+              >
+                ✏️ {topic.lastExerciseScore}%
+              </span>
+            )}
+          </div>
+
+          {/* Bigger activity pills */}
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            {activities.map(act => {
+              const isDone = topic.completedActivities.includes(act)
+              return (
+                <span
+                  key={act}
+                  className="text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-all"
+                  style={{
+                    background: isDone ? 'var(--success-soft)' : 'transparent',
+                    color: isDone ? 'var(--success)' : 'var(--text-subtle)',
+                    border: `1px solid ${isDone ? 'transparent' : 'var(--border)'}`,
+                  }}
+                >
+                  <span>{ACTIVITY_ICONS[act]}</span>
+                  <span>{ACTIVITY_LABELS[act]}</span>
+                  {isDone && <span className="ml-0.5">✓</span>}
+                </span>
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>{topic.percent}%</span>
-        <button
-          onClick={onLog}
-          className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-          style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
-        >
-          + Registrar
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-sm font-semibold tabular-nums" style={{ color: done ? 'var(--success)' : 'var(--text-muted)' }}>{topic.percent}%</span>
 
-        {/* Topic menu */}
-        <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-sm"
-            style={{ color: 'var(--text-muted)' }}
-            title="Opções"
+            onClick={onToggleComplete}
+            className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+            style={{
+              background: manuallyComplete ? 'var(--surface-hover)' : 'var(--success-soft)',
+              color: manuallyComplete ? 'var(--text-muted)' : 'var(--success)',
+              border: `1px solid ${manuallyComplete ? 'var(--border)' : 'transparent'}`,
+            }}
+            title={manuallyComplete ? 'Desmarcar conclusão' : 'Marcar tópico como concluído'}
           >
-            ⋮
+            {manuallyComplete ? '↶ Reabrir' : '✓ Concluir'}
           </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-8 z-10 w-44 rounded-xl border overflow-hidden"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+
+          <button
+            onClick={onLog}
+            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
+          >
+            + Registrar
+          </button>
+
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-sm"
+              style={{ color: 'var(--text-muted)' }}
+              title="Opções"
             >
-              <button onClick={() => { setRenaming(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
-                ✏️ Renomear
-              </button>
-              <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
-                ↔ Mover para outra matéria
-              </button>
-              <button onClick={() => { onDelete(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--danger-soft)]" style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}>
-                🗑 Excluir tópico
-              </button>
-            </div>
-          )}
+              ⋮
+            </button>
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-8 z-10 w-44 rounded-xl border overflow-hidden"
+                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+              >
+                <button onClick={() => { setRenaming(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
+                  ✏️ Renomear
+                </button>
+                <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
+                  ↔ Mover para outra matéria
+                </button>
+                <button onClick={() => { onDelete(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--danger-soft)]" style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}>
+                  🗑 Excluir tópico
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </li>

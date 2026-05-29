@@ -38,6 +38,7 @@ export interface Topic {
   exam_id: string | null
   name: string
   order_index: number
+  completed_at: string | null
   created_at: string
   subject?: Subject
   exam?: Exam

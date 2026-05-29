@@ -80,10 +80,12 @@ export async function POST(req: NextRequest) {
     for (const t of topics as any[]) {
       const info = subjectInfo[t.subject_id]
       if (!info) continue
+      const topicIsComplete = !!t.completed_at
+      const subjectIsComplete = info.completed
       const done = new Set((t.study_logs || []).map((l: any) => l.activity_type))
       const remaining = allActivities.filter(a => !done.has(a))
 
-      if (info.completed) {
+      if (subjectIsComplete || topicIsComplete) {
         if (!prefs.includeCompletedSubjects) continue
         reviewOnlyTopics.push({ id: t.id, name: t.name, subject: t.subject?.name })
       } else if (remaining.length > 0) {

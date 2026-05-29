@@ -27,15 +27,19 @@ export default function ExamsPage() {
     const withStats = await Promise.all((examsData || []).map(async exam => {
       const { data: es } = await supabase.from('exam_subjects').select('subject_id').eq('exam_id', exam.id)
       const subjectIds = (es || []).map(e => e.subject_id)
-      const { data: topics } = await supabase.from('topics').select('id').in('subject_id', subjectIds.length ? subjectIds : ['x'])
-      const topicIds = (topics || []).map(t => t.id)
+      const { data: topics } = await supabase.from('topics').select('id, completed_at').in('subject_id', subjectIds.length ? subjectIds : ['x'])
+      const topicList = topics || []
+      const topicIds = topicList.map(t => t.id)
       const { data: logs } = await supabase.from('study_logs').select('topic_id, activity_type').in('topic_id', topicIds.length ? topicIds : ['x'])
       const completedByTopic: Record<string, Set<string>> = {}
       for (const log of logs || []) {
         if (!completedByTopic[log.topic_id]) completedByTopic[log.topic_id] = new Set()
         completedByTopic[log.topic_id].add(log.activity_type)
       }
-      const totalProgress = topicIds.reduce((sum, id) => sum + ((completedByTopic[id]?.size || 0) / 4) * 100, 0)
+      const totalProgress = topicList.reduce((sum, t) => {
+        if (t.completed_at) return sum + 100
+        return sum + ((completedByTopic[t.id]?.size || 0) / 4) * 100
+      }, 0)
       return { ...exam, subject_count: subjectIds.length, progress: topicIds.length ? Math.round(totalProgress / topicIds.length) : 0 }
     }))
 
