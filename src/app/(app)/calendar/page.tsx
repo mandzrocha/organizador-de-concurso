@@ -135,7 +135,7 @@ export default function CalendarPage() {
   const dayPlans = (date: Date) => plans.filter(p => p.planned_date === date.toISOString().split('T')[0])
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronLeft size={16} /></button>
@@ -173,36 +173,35 @@ export default function CalendarPage() {
               style={{
                 background: today ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'transparent',
                 borderBottom: isLast ? undefined : '1px solid var(--border)',
+                minHeight: 80,
               }}
             >
-              {/* Day header (left side) — compacto */}
+              {/* Day header (left side) */}
               <button
                 onClick={() => setShowDayDetail(dayStr)}
-                className="flex items-center gap-2.5 w-32 flex-shrink-0 px-3 py-2 transition-colors hover:bg-[var(--surface-hover)]"
+                className="flex flex-col items-center justify-center gap-1 w-28 flex-shrink-0 px-3 py-3 transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ borderRight: '1px solid var(--border)' }}
               >
+                <p className="text-xs uppercase font-medium tracking-wider" style={{ color: today ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {format(day, 'EEE', { locale: ptBR })}
+                </p>
                 <p
-                  className="text-2xl font-bold leading-none tabular-nums"
+                  className="text-4xl font-bold leading-none tabular-nums"
                   style={{ color: today ? 'var(--primary)' : 'var(--text)' }}
                 >
                   {format(day, 'd')}
                 </p>
-                <div className="text-left">
-                  <p className="text-xs uppercase font-medium" style={{ color: today ? 'var(--primary)' : 'var(--text-muted)' }}>
-                    {format(day, 'EEE', { locale: ptBR })}
-                  </p>
-                  <p className="text-xs tabular-nums" style={{ color: doneCount === dayPlansArr.length && dayPlansArr.length > 0 ? 'var(--success)' : 'var(--text-subtle)' }}>
-                    {dayPlansArr.length > 0 ? `${doneCount}/${dayPlansArr.length}` : '—'}
-                  </p>
-                </div>
+                <p className="text-xs tabular-nums" style={{ color: doneCount === dayPlansArr.length && dayPlansArr.length > 0 ? 'var(--success)' : 'var(--text-subtle)' }}>
+                  {dayPlansArr.length > 0 ? `${doneCount}/${dayPlansArr.length}` : '—'}
+                </p>
               </button>
 
-              {/* Plans (horizontal scroll) */}
-              <div className="flex-1 min-w-0 px-2 py-2 flex items-center gap-1.5 overflow-x-auto">
+              {/* Plans — wrap multilinha pra caber varios */}
+              <div className="flex-1 min-w-0 px-3 py-3 flex items-start gap-2 flex-wrap content-start">
                 {dayPlansArr.length === 0 ? (
                   <button
                     onClick={() => setShowAddModal(dayStr)}
-                    className="text-xs px-3 py-1 rounded-md transition-colors"
+                    className="text-xs px-3 py-2 rounded-md transition-colors hover:bg-[var(--surface-hover)] self-center"
                     style={{ color: 'var(--text-subtle)' }}
                   >
                     + adicionar plano
@@ -214,11 +213,11 @@ export default function CalendarPage() {
                     ))}
                     <button
                       onClick={() => setShowAddModal(dayStr)}
-                      className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
-                      style={{ color: 'var(--text-subtle)' }}
+                      className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)] border border-dashed"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
                       title="Adicionar plano"
                     >
-                      <Plus size={13} />
+                      <Plus size={14} />
                     </button>
                   </>
                 )}
