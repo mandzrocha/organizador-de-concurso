@@ -157,65 +157,71 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {/* Week grid */}
-      <div className="grid grid-cols-7 gap-3">
+      {/* Week — horizontal rows per day */}
+      <div className="space-y-2">
         {weekDays.map(day => {
           const dayStr = day.toISOString().split('T')[0]
           const dayPlansArr = dayPlans(day)
           const today = isToday(day)
-
           const doneCount = dayPlansArr.filter(p => p.status === 'done').length
+
           return (
             <div
               key={dayStr}
-              className="min-h-48 rounded-xl border flex flex-col transition-shadow"
+              className="rounded-xl border flex items-stretch transition-shadow"
               style={{ background: 'var(--surface)', borderColor: today ? 'var(--primary-strong)' : 'var(--border)' }}
             >
-              {/* Day header - clickable */}
+              {/* Day header (left side) */}
               <button
                 onClick={() => setShowDayDetail(dayStr)}
-                className="px-3 py-2 border-b text-left transition-colors hover:bg-[var(--surface-hover)]"
+                className="flex flex-col items-center justify-center w-24 flex-shrink-0 py-3 border-r transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ borderColor: 'var(--border)' }}
               >
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs uppercase tracking-wider" style={{ color: today ? 'var(--primary)' : 'var(--text-muted)' }}>
                   {format(day, 'EEE', { locale: ptBR })}
                 </p>
-                <div className="flex items-baseline justify-between gap-1">
-                  <p
-                    className="text-lg font-semibold leading-none mt-0.5"
-                    style={{ color: today ? 'var(--primary-soft-text)' : 'var(--text)' }}
-                  >
-                    {format(day, 'd')}
+                <p
+                  className="text-3xl font-bold leading-none mt-1"
+                  style={{ color: today ? 'var(--primary)' : 'var(--text)' }}
+                >
+                  {format(day, 'd')}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
+                  {format(day, 'MMM', { locale: ptBR })}
+                </p>
+                {dayPlansArr.length > 0 && (
+                  <p className="text-xs mt-1 tabular-nums font-medium" style={{ color: doneCount === dayPlansArr.length ? 'var(--success)' : 'var(--text-muted)' }}>
+                    {doneCount}/{dayPlansArr.length}
                   </p>
-                  {dayPlansArr.length > 0 && (
-                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-subtle)' }}>
-                      {doneCount}/{dayPlansArr.length}
-                    </span>
-                  )}
-                </div>
-              </button>
-
-              {/* Plans (also click to open detail) */}
-              <button
-                onClick={() => setShowDayDetail(dayStr)}
-                className="flex-1 p-2 space-y-1.5 overflow-y-auto text-left"
-              >
-                {dayPlansArr.map(plan => (
-                  <PlanItem key={plan.id} plan={plan} />
-                ))}
-                {dayPlansArr.length === 0 && (
-                  <p className="text-xs text-center py-3" style={{ color: 'var(--text-subtle)' }}>vazio</p>
                 )}
               </button>
 
-              {/* Add button */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowAddModal(dayStr) }}
-                className="m-2 mt-0 py-1 rounded-lg text-xs border border-dashed transition-colors"
-                style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
-              >
-                + planejar
-              </button>
+              {/* Plans (horizontal scroll) */}
+              <div className="flex-1 min-w-0 p-3 flex items-center gap-2 overflow-x-auto">
+                {dayPlansArr.length === 0 ? (
+                  <button
+                    onClick={() => setShowAddModal(dayStr)}
+                    className="w-full py-3 rounded-lg text-xs border border-dashed transition-colors hover:border-[var(--primary)]"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+                  >
+                    Nenhum plano. Clique para adicionar.
+                  </button>
+                ) : (
+                  <>
+                    {dayPlansArr.map(plan => (
+                      <PlanChip key={plan.id} plan={plan} onClick={() => setShowDayDetail(dayStr)} />
+                    ))}
+                    <button
+                      onClick={() => setShowAddModal(dayStr)}
+                      className="flex-shrink-0 w-8 h-8 rounded-lg border border-dashed flex items-center justify-center transition-colors"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+                      title="Adicionar plano"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )
         })}
@@ -419,6 +425,37 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
         </div>
       </div>
     </div>
+  )
+}
+
+function PlanChip({ plan, onClick }: { plan: PlanLoaded; onClick: () => void }) {
+  const isDone = plan.status === 'done'
+  const isSkipped = plan.status === 'skipped'
+  const subject = plan.topic?.subject || plan.subject
+  const title = plan.topic?.name || subject?.name || '?'
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex-shrink-0 max-w-xs rounded-lg px-3 py-2 flex items-center gap-2 transition-colors hover:opacity-90"
+      style={{
+        background: isDone ? 'var(--success-soft)' : isSkipped ? 'var(--surface-hover)' : 'var(--surface-hover)',
+        opacity: isSkipped ? 0.5 : 1,
+        borderLeft: subject ? `3px solid ${subject.color}` : undefined,
+      }}
+    >
+      <ActivityIcon type={plan.activity_type} size={13} style={{ color: isDone ? 'var(--success)' : 'var(--text-muted)' }} />
+      <span
+        className="text-xs font-medium truncate max-w-[180px]"
+        style={{
+          color: isDone ? 'var(--success)' : 'var(--text)',
+          textDecorationLine: isDone ? 'line-through' : 'none',
+        }}
+      >
+        {title}
+      </span>
+      {isDone && <Check size={11} strokeWidth={3} style={{ color: 'var(--success)' }} />}
+    </button>
   )
 }
 

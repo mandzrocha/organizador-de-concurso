@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight } from 'lucide-react'
+import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight, User } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { href: '/calendar',  icon: CalendarDays,    label: 'Calendário' },
   { href: '/reviews',   icon: RotateCw,        label: 'Revisões' },
   { href: '/news',      icon: Newspaper,       label: 'Notícias' },
+  { href: '/profile',   icon: User,            label: 'Perfil' },
 ]
 
 export function Sidebar() {

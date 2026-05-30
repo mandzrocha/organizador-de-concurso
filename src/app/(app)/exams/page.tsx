@@ -163,7 +163,11 @@ export default function ExamsPage() {
 function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStats; onSetPrimary: (id: string) => void; onDelete: () => void }) {
   const daysLeft = exam.exam_date ? differenceInDays(parseISO(exam.exam_date), new Date()) : null
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+    <Link
+      href={`/exams/${exam.id}`}
+      className="rounded-xl border overflow-hidden block transition-all hover:shadow-md"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
+    >
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -205,22 +209,15 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
           <div className="flex items-center gap-2 flex-shrink-0">
             {!exam.is_primary && (
               <button
-                onClick={() => onSetPrimary(exam.id)}
+                onClick={(e) => { e.preventDefault(); onSetPrimary(exam.id) }}
                 className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
                 style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
               >
                 Definir como foco
               </button>
             )}
-            <Link
-              href={`/exams/${exam.id}`}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium"
-              style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
-            >
-              Ver detalhes
-            </Link>
             <button
-              onClick={onDelete}
+              onClick={(e) => { e.preventDefault(); onDelete() }}
               className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors"
               style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
               title="Excluir concurso"
@@ -246,13 +243,17 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
 function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; onPromote: (id: string) => void; onDelete: () => void }) {
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', borderStyle: 'dashed' }}>
+    <Link
+      href={`/exams/${exam.id}/edit`}
+      className="rounded-xl border overflow-hidden block transition-all hover:shadow-md"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)', borderStyle: 'dashed' }}
+    >
       <div className="p-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -276,22 +277,15 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
 
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={() => onPromote(exam.id)}
+            onClick={(e) => { e.preventDefault(); onPromote(exam.id) }}
             className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5"
             style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
             title="Mover para estudo ativo"
           >
             <Rocket size={12} /> Estudar
           </button>
-          <Link
-            href={`/exams/${exam.id}/edit`}
-            className="text-xs px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-          >
-            <Pencil size={12} /> Editar
-          </Link>
           <button
-            onClick={onDelete}
+            onClick={(e) => { e.preventDefault(); onDelete() }}
             className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors"
             style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
             title="Excluir concurso"
@@ -300,7 +294,7 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
