@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Exam } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
+import { deleteExamCascade } from '@/lib/exam-actions'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -53,6 +54,20 @@ export default function ExamsPage() {
     await supabase.from('exams').update({ is_primary: false }).neq('id', examId)
     await supabase.from('exams').update({ is_primary: true }).eq('id', examId)
     loadExams()
+  }
+
+  async function deleteExam(examId: string, examName: string) {
+    const ok = confirm(
+      `Excluir "${examName}"?\n\n` +
+      `Isso apaga tópicos, histórico de estudos, revisões e planos relacionados a este concurso. NÃO pode ser desfeito.`
+    )
+    if (!ok) return
+    try {
+      await deleteExamCascade(supabase, examId)
+      loadExams()
+    } catch (e: any) {
+      alert('Erro ao excluir: ' + e.message)
+    }
   }
 
   async function promoteToStudying(examId: string) {
@@ -106,7 +121,7 @@ export default function ExamsPage() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {studying.map(exam => <StudyingExamCard key={exam.id} exam={exam} onSetPrimary={setPrimary} />)}
+                {studying.map(exam => <StudyingExamCard key={exam.id} exam={exam} onSetPrimary={setPrimary} onDelete={() => deleteExam(exam.id, exam.name)} />)}
               </div>
             )}
           </section>
@@ -122,7 +137,7 @@ export default function ExamsPage() {
                 <span className="text-xs ml-1" style={{ color: 'var(--text-subtle)' }}>· aguardando edital, sem estudo ativo</span>
               </div>
               <div className="grid gap-3">
-                {watching.map(exam => <WatchingExamCard key={exam.id} exam={exam} onPromote={promoteToStudying} />)}
+                {watching.map(exam => <WatchingExamCard key={exam.id} exam={exam} onPromote={promoteToStudying} onDelete={() => deleteExam(exam.id, exam.name)} />)}
               </div>
             </section>
           )}
@@ -143,7 +158,7 @@ export default function ExamsPage() {
   )
 }
 
-function StudyingExamCard({ exam, onSetPrimary }: { exam: ExamWithStats; onSetPrimary: (id: string) => void }) {
+function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStats; onSetPrimary: (id: string) => void; onDelete: () => void }) {
   const daysLeft = exam.exam_date ? differenceInDays(parseISO(exam.exam_date), new Date()) : null
   return (
     <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
@@ -202,6 +217,14 @@ function StudyingExamCard({ exam, onSetPrimary }: { exam: ExamWithStats; onSetPr
             >
               Ver detalhes
             </Link>
+            <button
+              onClick={onDelete}
+              className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+              title="Excluir concurso"
+            >
+              🗑
+            </button>
           </div>
         </div>
 
@@ -225,7 +248,7 @@ function StudyingExamCard({ exam, onSetPrimary }: { exam: ExamWithStats; onSetPr
   )
 }
 
-function WatchingExamCard({ exam, onPromote }: { exam: ExamWithStats; onPromote: (id: string) => void }) {
+function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; onPromote: (id: string) => void; onDelete: () => void }) {
   return (
     <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', borderStyle: 'dashed' }}>
       <div className="p-4 flex items-center gap-4">
@@ -265,6 +288,14 @@ function WatchingExamCard({ exam, onPromote }: { exam: ExamWithStats; onPromote:
           >
             Editar
           </Link>
+          <button
+            onClick={onDelete}
+            className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+            title="Excluir concurso"
+          >
+            🗑
+          </button>
         </div>
       </div>
     </div>

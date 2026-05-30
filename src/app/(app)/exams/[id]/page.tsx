@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Exam, Subject, Topic, StudyLog, ACTIVITY_LABELS, ACTIVITY_ICONS, ActivityType } from '@/lib/types'
 import { getTopicCompletionPercent } from '@/lib/progress'
+import { deleteExamCascade } from '@/lib/exam-actions'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -174,9 +175,18 @@ export default function ExamDetailPage() {
   }
 
   async function deleteExam() {
-    if (!confirm(`Excluir "${exam?.name}"? Esta ação não pode ser desfeita.`)) return
-    await supabase.from('exams').delete().eq('id', id)
-    router.push('/exams')
+    const ok = confirm(
+      `Excluir "${exam?.name}"?\n\n` +
+      `Isso vai apagar TODAS as matérias vinculadas a este concurso, os tópicos, ` +
+      `o histórico de estudos e os planos do calendário. Esta ação NÃO pode ser desfeita.`
+    )
+    if (!ok) return
+    try {
+      await deleteExamCascade(supabase, id)
+      router.push('/exams')
+    } catch (e: any) {
+      alert('Erro ao excluir: ' + e.message)
+    }
   }
 
   async function renameSubject(subjectId: string, newName: string) {

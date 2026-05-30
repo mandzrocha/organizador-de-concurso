@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Exam, SUBJECT_COLORS } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
+import { deleteExamCascade } from '@/lib/exam-actions'
 import type { SubjectDiff, EditalDiff } from '@/app/api/compare-edital/route'
 
 type TabKey = 'info' | 'edital'
@@ -51,6 +52,24 @@ export default function EditExamPage() {
   const [importing, setImporting] = useState(false)
 
   useEffect(() => { loadExam() }, [id])
+
+  async function deleteExam() {
+    if (!exam) return
+    const ok = confirm(
+      `Excluir "${exam.name}"?\n\n` +
+      `Isso vai apagar TODAS as matérias vinculadas a este concurso, seus tópicos, ` +
+      `o histórico de estudos e os planos do calendário. Esta ação NÃO pode ser desfeita.`
+    )
+    if (!ok) return
+    setSaving(true)
+    try {
+      await deleteExamCascade(supabase, id)
+      router.push('/exams')
+    } catch (e: any) {
+      setSaving(false)
+      alert('Erro ao excluir: ' + e.message)
+    }
+  }
 
   async function loadExam() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -413,6 +432,23 @@ export default function EditExamPage() {
               {saving ? 'Salvando...' : 'Salvar alterações'}
             </button>
             {saveMsg && <span className="text-sm" style={{ color: 'var(--success)' }}>✓ {saveMsg}</span>}
+          </div>
+
+          {/* Danger zone */}
+          <div className="pt-5 mt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--danger)' }}>Zona de risco</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              Excluir remove o concurso, as matérias vinculadas a ele (apenas o vínculo — matérias compartilhadas continuam em outros concursos),
+              os tópicos do edital, registros de estudo, revisões e planos do calendário relacionados.
+            </p>
+            <button
+              onClick={deleteExam}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50"
+              style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+            >
+              🗑 Excluir este concurso
+            </button>
           </div>
         </div>
       )}
