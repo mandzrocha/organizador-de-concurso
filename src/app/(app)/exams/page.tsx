@@ -9,6 +9,7 @@ import { isSupabaseConfigured } from '@/lib/config'
 import { deleteExamCascade } from '@/lib/exam-actions'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList } from 'lucide-react'
 
 interface ExamWithStats extends Exam {
   subject_count: number
@@ -90,14 +91,14 @@ export default function ExamsPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Concursos</h1>
-        <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
-          + Novo Concurso
+        <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-1.5" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
+          <Plus size={14} strokeWidth={2.5} /> Novo Concurso
         </Link>
       </div>
 
       {exams.length === 0 ? (
         <div className="text-center py-20">
-          <div className="text-4xl mb-3">📋</div>
+          <ClipboardList size={48} strokeWidth={1.25} className="mx-auto mb-3" style={{ color: 'var(--text-subtle)' }} />
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Nenhum concurso cadastrado ainda.</p>
           <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium inline-block" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
             Adicionar concurso
@@ -130,7 +131,8 @@ export default function ExamsPage() {
           {watching.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>👀 De olho</h2>
+                <Eye size={14} style={{ color: 'var(--warning)' }} />
+                <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>De olho</h2>
                 <span className="text-xs px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
                   {watching.length}
                 </span>
@@ -146,10 +148,10 @@ export default function ExamsPage() {
           {watching.length === 0 && studying.length > 0 && (
             <Link
               href="/exams/new?watching=1"
-              className="block text-center rounded-xl border border-dashed py-4 text-sm font-medium transition-colors hover:border-[var(--primary)]"
+              className="flex items-center justify-center gap-2 text-center rounded-xl border border-dashed py-4 text-sm font-medium transition-colors hover:border-[var(--primary)]"
               style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
             >
-              👀 Adicionar concurso para acompanhar (sem estudar ainda)
+              <Eye size={16} /> Adicionar concurso para acompanhar (sem estudar ainda)
             </Link>
           )}
         </>
@@ -167,8 +169,8 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               {exam.is_primary && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-                  ★ Foco principal
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                  <Star size={11} fill="currentColor" strokeWidth={0} /> Foco principal
                 </span>
               )}
               {exam.organization && (
@@ -177,8 +179,8 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
                 </span>
               )}
               {!exam.exam_date && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
-                  📂 Pré-edital
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
+                  <FolderOpen size={11} /> Pré-edital
                 </span>
               )}
             </div>
@@ -223,7 +225,7 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
               style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
               title="Excluir concurso"
             >
-              🗑
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
@@ -259,8 +261,8 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
                 {exam.organization}
               </span>
             )}
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
-              👀 De olho
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
+              <Eye size={11} /> De olho
             </span>
           </div>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h3>
@@ -275,18 +277,18 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => onPromote(exam.id)}
-            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5"
             style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
             title="Mover para estudo ativo"
           >
-            🚀 Estudar
+            <Rocket size={12} /> Estudar
           </button>
           <Link
             href={`/exams/${exam.id}/edit`}
-            className="text-xs px-3 py-1.5 rounded-lg border"
+            className="text-xs px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5"
             style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
           >
-            Editar
+            <Pencil size={12} /> Editar
           </Link>
           <button
             onClick={onDelete}
@@ -294,7 +296,7 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
             style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
             title="Excluir concurso"
           >
-            🗑
+            <Trash2 size={14} />
           </button>
         </div>
       </div>

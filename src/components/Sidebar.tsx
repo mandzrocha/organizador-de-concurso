@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 
 const NAV = [
-  { href: '/dashboard', icon: '▦', label: 'Dashboard' },
-  { href: '/exams', icon: '📋', label: 'Concursos' },
-  { href: '/calendar', icon: '📅', label: 'Calendário' },
-  { href: '/reviews', icon: '🔁', label: 'Revisões' },
-  { href: '/news', icon: '📰', label: 'Notícias' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/exams',     icon: FileText,        label: 'Concursos' },
+  { href: '/calendar',  icon: CalendarDays,    label: 'Calendário' },
+  { href: '/reviews',   icon: RotateCw,        label: 'Revisões' },
+  { href: '/news',      icon: Newspaper,       label: 'Notícias' },
 ]
 
 export function Sidebar() {
@@ -31,6 +32,7 @@ export function Sidebar() {
       <nav className="flex-1 p-3 space-y-1">
         {NAV.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
@@ -42,7 +44,7 @@ export function Sidebar() {
                 fontWeight: active ? 500 : 400,
               }}
             >
-              <span className="text-base">{item.icon}</span>
+              <Icon size={16} strokeWidth={active ? 2.25 : 2} />
               {item.label}
             </Link>
           )
@@ -56,10 +58,10 @@ export function Sidebar() {
           style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}
         >
           <span className="flex items-center gap-2">
-            <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
+            {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
             <span>{theme === 'dark' ? 'Escuro' : 'Claro'}</span>
           </span>
-          <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>⇄</span>
+          <ArrowLeftRight size={12} style={{ color: 'var(--text-subtle)' }} />
         </button>
         <p className="text-xs px-1" style={{ color: 'var(--text-subtle)' }}>EditalFocus v1.0</p>
       </div>

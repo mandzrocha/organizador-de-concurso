@@ -9,6 +9,11 @@ import { getTopicCompletionPercent } from '@/lib/progress'
 import { deleteExamCascade } from '@/lib/exam-actions'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  ArrowLeft, Star, FolderOpen, Pencil, Trash2, Plus, ChevronDown, MoreVertical,
+  GripVertical, ArrowUpDown, ArrowLeftRight, ArrowUp, ArrowDown, Check, RotateCcw,
+  Play, BookOpen, PenLine, RotateCw, X, CheckCircle2, Sparkles, BookMarked,
+} from 'lucide-react'
 
 interface TopicWithProgress extends Topic {
   completedActivities: ActivityType[]
@@ -29,12 +34,17 @@ interface LogModal {
   subjectName: string
 }
 
-const ACTIVITIES: { type: ActivityType; icon: string; label: string; desc: string }[] = [
-  { type: 'video',      icon: '🎬', label: 'Videoaula',  desc: 'Assistiu aula em vídeo' },
-  { type: 'reading',    icon: '📖', label: 'Leitura',    desc: 'Leu apostila ou livro' },
-  { type: 'exercises',  icon: '✏️', label: 'Exercícios', desc: 'Resolveu questões' },
-  { type: 'review',     icon: '🔁', label: 'Revisão',    desc: 'Revisou o conteúdo' },
+type LucideIcon = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string; style?: React.CSSProperties }>
+
+const ACTIVITIES: { type: ActivityType; Icon: LucideIcon; label: string; desc: string }[] = [
+  { type: 'video',      Icon: Play,    label: 'Videoaula',  desc: 'Assistiu aula em vídeo' },
+  { type: 'reading',    Icon: BookOpen, label: 'Leitura',   desc: 'Leu apostila ou livro' },
+  { type: 'exercises',  Icon: PenLine, label: 'Exercícios', desc: 'Resolveu questões' },
+  { type: 'review',     Icon: RotateCw, label: 'Revisão',   desc: 'Revisou o conteúdo' },
 ]
+const ACTIVITY_ICON_MAP: Record<ActivityType, LucideIcon> = {
+  video: Play, reading: BookOpen, exercises: PenLine, review: RotateCw,
+}
 
 const EXERCISE_THRESHOLD = 85
 
@@ -281,16 +291,22 @@ export default function ExamDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href="/exams" className="text-xs mb-2 block hover:underline" style={{ color: 'var(--text-muted)' }}>← Concursos</Link>
+          <Link href="/exams" className="text-xs mb-2 inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--text-muted)' }}>
+            <ArrowLeft size={12} /> Concursos
+          </Link>
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             {exam.is_primary && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>★ Foco principal</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                <Star size={11} fill="currentColor" strokeWidth={0} /> Foco principal
+              </span>
             )}
             {exam.organization && (
               <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.organization}</span>
             )}
             {!exam.exam_date && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>📂 Pré-edital</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
+                <FolderOpen size={11} /> Pré-edital
+              </span>
             )}
           </div>
           <h1 className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--text)' }}>{exam.name}</h1>
@@ -303,11 +319,11 @@ export default function ExamDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/exams/${id}/edit`} className="text-xs px-3 py-1.5 rounded-lg border transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-            ✏️ Editar
+          <Link href={`/exams/${id}/edit`} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+            <Pencil size={12} /> Editar
           </Link>
-          <button onClick={deleteExam} className="text-xs px-3 py-1.5 rounded-lg border transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>
-            Excluir
+          <button onClick={deleteExam} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>
+            <Trash2 size={12} /> Excluir
           </button>
         </div>
       </div>
@@ -342,8 +358,8 @@ export default function ExamDetailPage() {
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Matérias</h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Clique para ver os tópicos · arraste para reordenar · use o menu ⋮ para editar</p>
           </div>
-          <button onClick={() => setShowAddSubject(true)} className="text-xs px-3 py-2 rounded-lg font-medium transition-colors" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-            + Adicionar matéria
+          <button onClick={() => setShowAddSubject(true)} className="text-xs px-3 py-2 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+            <Plus size={12} strokeWidth={2.5} /> Adicionar matéria
           </button>
         </div>
 
@@ -367,7 +383,7 @@ export default function ExamDetailPage() {
 
         {subjects.length === 0 ? (
           <div className="text-center py-16 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
-            <div className="text-3xl mb-2 opacity-40">📚</div>
+            <BookMarked size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
             <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma matéria adicionada ainda.</p>
           </div>
         ) : (
@@ -552,11 +568,11 @@ function SubjectCard({
         <div className="pl-3 pr-3 py-4 flex items-center gap-2">
           {/* Drag handle */}
           <div
-            className="flex flex-col items-center justify-center w-5 cursor-grab active:cursor-grabbing select-none"
-            style={{ color: 'var(--text-subtle)', lineHeight: 1 }}
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+            style={{ color: 'var(--text-subtle)' }}
             title="Arraste para reordenar"
           >
-            <span className="text-xs">⋮⋮</span>
+            <GripVertical size={14} />
           </div>
 
           <button onClick={onToggle} className="flex-1 min-w-0 text-left">
@@ -583,8 +599,8 @@ function SubjectCard({
                 {subject.topics.length}
               </span>
               {isCompleted && (
-                <span className="text-xs px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
-                  ✓ Concluída
+                <span className="text-xs px-1.5 py-0.5 rounded-md font-medium inline-flex items-center gap-1" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
+                  <CheckCircle2 size={11} /> Concluída
                 </span>
               )}
             </div>
@@ -607,7 +623,7 @@ function SubjectCard({
                 style={{ color: 'var(--text-muted)' }}
                 title="Opções"
               >
-                ⋮
+                <MoreVertical size={16} />
               </button>
               {menuOpen && (
                 <div
@@ -616,40 +632,40 @@ function SubjectCard({
                 >
                   <button
                     onClick={() => { setRenaming(true); setMenuOpen(false) }}
-                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)]"
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] inline-flex items-center gap-2"
                     style={{ color: 'var(--text)' }}
                   >
-                    ✏️ Renomear
+                    <Pencil size={13} /> Renomear
                   </button>
                   <button
                     onClick={() => { onMoveUp(); setMenuOpen(false) }}
                     disabled={index === 0}
-                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40 inline-flex items-center gap-2"
                     style={{ color: 'var(--text)' }}
                   >
-                    ↑ Mover para cima
+                    <ArrowUp size={13} /> Mover para cima
                   </button>
                   <button
                     onClick={() => { onMoveDown(); setMenuOpen(false) }}
                     disabled={index === total - 1}
-                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40 inline-flex items-center gap-2"
                     style={{ color: 'var(--text)' }}
                   >
-                    ↓ Mover para baixo
+                    <ArrowDown size={13} /> Mover para baixo
                   </button>
                   <button
                     onClick={() => { onToggleComplete(); setMenuOpen(false) }}
-                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)]"
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)] inline-flex items-center gap-2"
                     style={{ color: isCompleted ? 'var(--warning)' : 'var(--success)', borderTop: '1px solid var(--border)' }}
                   >
-                    {isCompleted ? '↶ Desmarcar conclusão' : '✓ Marcar como concluída'}
+                    {isCompleted ? <><RotateCcw size={13} /> Desmarcar conclusão</> : <><Check size={13} /> Marcar como concluída</>}
                   </button>
                   <button
                     onClick={() => { onRemove(); setMenuOpen(false) }}
-                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--danger-soft)]"
+                    className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--danger-soft)] inline-flex items-center gap-2"
                     style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}
                   >
-                    🗑 Remover do concurso
+                    <Trash2 size={13} /> Remover do concurso
                   </button>
                 </div>
               )}
@@ -657,10 +673,10 @@ function SubjectCard({
 
             <button
               onClick={onToggle}
-              className="text-xs transition-transform px-1"
+              className="transition-transform px-1 flex items-center"
               style={{ color: 'var(--text-subtle)', transform: expanded ? 'rotate(180deg)' : 'rotate(0)' }}
             >
-              ▼
+              <ChevronDown size={16} />
             </button>
           </div>
         </div>
@@ -717,8 +733,8 @@ function SubjectCard({
                 <button onClick={() => setShowAddTopic(false)} className="text-xs" style={{ color: 'var(--text-subtle)' }}>✕</button>
               </div>
             ) : (
-              <button onClick={() => setShowAddTopic(true)} className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-                + Adicionar tópico
+              <button onClick={() => setShowAddTopic(true)} className="text-xs font-medium inline-flex items-center gap-1.5" style={{ color: 'var(--primary)' }}>
+                <Plus size={12} strokeWidth={2.5} /> Adicionar tópico
               </button>
             )}
           </div>
@@ -787,11 +803,11 @@ function TopicRow({
       <div className="flex items-start gap-3">
         {/* Drag handle */}
         <div
-          className="flex items-center justify-center w-4 cursor-grab active:cursor-grabbing select-none mt-1"
-          style={{ color: 'var(--text-subtle)', lineHeight: 1 }}
+          className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none mt-1"
+          style={{ color: 'var(--text-subtle)' }}
           title="Arraste para reordenar"
         >
-          <span className="text-xs">⋮⋮</span>
+          <GripVertical size={12} />
         </div>
 
         <div
@@ -829,19 +845,19 @@ function TopicRow({
             )}
 
             {manuallyComplete && (
-              <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
-                ✓ Concluído
+              <span className="text-xs px-2 py-0.5 rounded-md font-medium inline-flex items-center gap-1" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
+                <Check size={11} strokeWidth={2.5} /> Concluído
               </span>
             )}
             {topic.lastExerciseScore !== null && (
               <span
-                className="text-xs px-2 py-0.5 rounded-md font-medium tabular-nums"
+                className="text-xs px-2 py-0.5 rounded-md font-medium tabular-nums inline-flex items-center gap-1"
                 style={{
                   background: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger-soft)' : 'var(--success-soft)',
                   color: topic.lastExerciseScore < EXERCISE_THRESHOLD ? 'var(--danger)' : 'var(--success)',
                 }}
               >
-                ✏️ {topic.lastExerciseScore}%
+                <PenLine size={11} /> {topic.lastExerciseScore}%
               </span>
             )}
           </div>
@@ -850,6 +866,7 @@ function TopicRow({
           <div className="flex items-center gap-2 mt-2.5 flex-wrap">
             {activities.map(act => {
               const isDone = topic.completedActivities.includes(act)
+              const Icon = ACTIVITY_ICON_MAP[act]
               return (
                 <span
                   key={act}
@@ -860,9 +877,9 @@ function TopicRow({
                     border: `1px solid ${isDone ? 'transparent' : 'var(--border)'}`,
                   }}
                 >
-                  <span>{ACTIVITY_ICONS[act]}</span>
+                  <Icon size={12} />
                   <span>{ACTIVITY_LABELS[act]}</span>
-                  {isDone && <span className="ml-0.5">✓</span>}
+                  {isDone && <Check size={11} strokeWidth={2.5} />}
                 </span>
               )
             })}
@@ -874,7 +891,7 @@ function TopicRow({
 
           <button
             onClick={onToggleComplete}
-            className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+            className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5"
             style={{
               background: manuallyComplete ? 'var(--surface-hover)' : 'var(--success-soft)',
               color: manuallyComplete ? 'var(--text-muted)' : 'var(--success)',
@@ -882,55 +899,55 @@ function TopicRow({
             }}
             title={manuallyComplete ? 'Desmarcar conclusão' : 'Marcar tópico como concluído'}
           >
-            {manuallyComplete ? '↶ Reabrir' : '✓ Concluir'}
+            {manuallyComplete ? <><RotateCcw size={12} /> Reabrir</> : <><Check size={12} strokeWidth={2.5} /> Concluir</>}
           </button>
 
           <button
             onClick={onLog}
-            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5"
             style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
           >
-            + Registrar
+            <Plus size={12} strokeWidth={2.5} /> Registrar
           </button>
 
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-sm"
+              className="w-7 h-7 rounded-md flex items-center justify-center"
               style={{ color: 'var(--text-muted)' }}
               title="Opções"
             >
-              ⋮
+              <MoreVertical size={14} />
             </button>
             {menuOpen && (
               <div
                 className="absolute right-0 top-8 z-10 w-48 rounded-xl border overflow-hidden"
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
               >
-                <button onClick={() => { setRenaming(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
-                  ✏️ Renomear
+                <button onClick={() => { setRenaming(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] inline-flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                  <Pencil size={12} /> Renomear
                 </button>
                 <button
                   onClick={() => { onMoveUp(); setMenuOpen(false) }}
                   disabled={index === 0}
-                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40 inline-flex items-center gap-2"
                   style={{ color: 'var(--text)' }}
                 >
-                  ↑ Mover para cima
+                  <ArrowUp size={12} /> Mover para cima
                 </button>
                 <button
                   onClick={() => { onMoveDown(); setMenuOpen(false) }}
                   disabled={index === total - 1}
-                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40 inline-flex items-center gap-2"
                   style={{ color: 'var(--text)' }}
                 >
-                  ↓ Mover para baixo
+                  <ArrowDown size={12} /> Mover para baixo
                 </button>
-                <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)', borderTop: '1px solid var(--border)' }}>
-                  ↔ Mover para outra matéria
+                <button onClick={() => { onMove(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--surface-hover)] inline-flex items-center gap-2" style={{ color: 'var(--text)', borderTop: '1px solid var(--border)' }}>
+                  <ArrowLeftRight size={12} /> Mover para outra matéria
                 </button>
-                <button onClick={() => { onDelete(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--danger-soft)]" style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}>
-                  🗑 Excluir tópico
+                <button onClick={() => { onDelete(); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--danger-soft)] inline-flex items-center gap-2" style={{ color: 'var(--danger)', borderTop: '1px solid var(--border)' }}>
+                  <Trash2 size={12} /> Excluir tópico
                 </button>
               </div>
             )}
@@ -962,7 +979,7 @@ function MoveTopicModal({
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Mover tópico</p>
               <h2 className="text-base font-semibold mt-0.5" style={{ color: 'var(--text)' }}>{topicName}</h2>
             </div>
-            <button onClick={onClose} className="text-lg leading-none" style={{ color: 'var(--text-subtle)' }}>✕</button>
+            <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
           </div>
         </div>
 
@@ -994,10 +1011,10 @@ function MoveTopicModal({
             <>
               <button
                 onClick={() => setCreating(true)}
-                className="w-full px-3 py-3 rounded-lg border border-dashed text-sm font-medium text-left"
+                className="w-full px-3 py-3 rounded-lg border border-dashed text-sm font-medium text-left inline-flex items-center gap-2"
                 style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
               >
-                + Criar nova matéria e mover
+                <Plus size={14} strokeWidth={2.5} /> Criar nova matéria e mover
               </button>
               <p className="text-xs uppercase tracking-wider mt-3 mb-1 px-1" style={{ color: 'var(--text-subtle)' }}>Matérias existentes</p>
               {subjects.length === 0 ? (
@@ -1096,30 +1113,34 @@ function LogStudyModal({
               <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--primary)' }}>{subjectName}</p>
               <h2 className="text-base font-semibold leading-tight" style={{ color: 'var(--text)' }}>{topicName}</h2>
             </div>
-            <button onClick={onClose} className="text-lg leading-none mt-0.5" style={{ color: 'var(--text-subtle)' }}>✕</button>
+            <button onClick={onClose} className="mt-0.5" style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
           </div>
           <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>O que você estudou agora?</p>
         </div>
 
         <div className="p-5 space-y-5">
           <div className="grid grid-cols-2 gap-2">
-            {ACTIVITIES.map(a => (
-              <button
-                key={a.type}
-                onClick={() => setActivity(a.type)}
-                className="flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-all"
-                style={{
-                  background: activity === a.type ? 'var(--primary-soft)' : 'var(--surface-hover)',
-                  borderColor: activity === a.type ? 'var(--primary)' : 'var(--border)',
-                }}
-              >
-                <span className="text-xl">{a.icon}</span>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: activity === a.type ? 'var(--primary-soft-text)' : 'var(--text)' }}>{a.label}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{a.desc}</p>
-                </div>
-              </button>
-            ))}
+            {ACTIVITIES.map(a => {
+              const Icon = a.Icon
+              const active = activity === a.type
+              return (
+                <button
+                  key={a.type}
+                  onClick={() => setActivity(a.type)}
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-all"
+                  style={{
+                    background: active ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                    borderColor: active ? 'var(--primary)' : 'var(--border)',
+                  }}
+                >
+                  <Icon size={20} strokeWidth={1.75} style={{ color: active ? 'var(--primary)' : 'var(--text-muted)' }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: active ? 'var(--primary-soft-text)' : 'var(--text)' }}>{a.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{a.desc}</p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
           {activity === 'exercises' && (
@@ -1131,11 +1152,11 @@ function LogStudyModal({
                   <input type="number" min="1" placeholder="50" value={total} onChange={e => setTotal(e.target.value)} className="w-full" style={{ textAlign: 'center' }} />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1" style={{ color: 'var(--success)' }}>✓ Acertos</label>
+                  <label className="text-xs mb-1 inline-flex items-center gap-1" style={{ color: 'var(--success)' }}><Check size={11} strokeWidth={2.5} /> Acertos</label>
                   <input type="number" min="0" max={total || undefined} placeholder="40" value={correct} onChange={e => setCorrect(e.target.value)} className="w-full" style={{ textAlign: 'center' }} />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1" style={{ color: 'var(--danger)' }}>✗ Erros</label>
+                  <label className="text-xs mb-1 inline-flex items-center gap-1" style={{ color: 'var(--danger)' }}><X size={11} strokeWidth={2.5} /> Erros</label>
                   <div className="w-full rounded-lg px-3 py-2 text-center text-sm font-medium" style={{ background: 'var(--surface)', color: wrongNum > 0 ? 'var(--danger)' : 'var(--text-subtle)', border: '1px solid var(--border)' }}>
                     {totalNum > 0 ? wrongNum : '—'}
                   </div>
@@ -1149,8 +1170,8 @@ function LogStudyModal({
                 >
                   <div>
                     <p className="text-2xl font-bold" style={{ color: needsRevision ? 'var(--danger)' : 'var(--success)' }}>{pct}%</p>
-                    <p className="text-xs mt-0.5" style={{ color: needsRevision ? 'var(--danger)' : 'var(--success)' }}>
-                      {needsRevision ? `⚠️ Abaixo de ${EXERCISE_THRESHOLD}% — revisão agendada` : `✓ Aprovado! Acima de ${EXERCISE_THRESHOLD}%`}
+                    <p className="text-xs mt-0.5 inline-flex items-center gap-1" style={{ color: needsRevision ? 'var(--danger)' : 'var(--success)' }}>
+                      {needsRevision ? <>⚠ Abaixo de {EXERCISE_THRESHOLD}% — revisão agendada</> : <><Check size={11} strokeWidth={2.5} /> Aprovado! Acima de {EXERCISE_THRESHOLD}%</>}
                     </p>
                   </div>
                   <div className="text-right">
