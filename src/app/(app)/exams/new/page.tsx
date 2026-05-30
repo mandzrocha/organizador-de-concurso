@@ -150,6 +150,30 @@ export default function NewExamPage() {
 
         if (existing) {
           subjectId = existing.id
+          // Auto-migrate: legacy topics with exam_id IS NULL on this subject
+          // belong to the FIRST exam that linked the subject. Claim them so
+          // they stop "vazando" para o concurso novo.
+          const { data: legacyTopics } = await supabase
+            .from('topics')
+            .select('id')
+            .eq('subject_id', subjectId)
+            .is('exam_id', null)
+          if (legacyTopics && legacyTopics.length > 0) {
+            const { data: oldestLink } = await supabase
+              .from('exam_subjects')
+              .select('exam_id')
+              .eq('subject_id', subjectId)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            if (oldestLink?.exam_id) {
+              await supabase
+                .from('topics')
+                .update({ exam_id: oldestLink.exam_id })
+                .eq('subject_id', subjectId)
+                .is('exam_id', null)
+            }
+          }
         } else {
           const { data: newSub, error: subErr } = await supabase
             .from('subjects')

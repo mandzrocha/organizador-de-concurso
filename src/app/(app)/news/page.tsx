@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format, parseISO, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { RotateCw, Newspaper, Eye, ArrowRight, AlertCircle } from 'lucide-react'
 import type { NewsItem } from '@/app/api/news/route'
 
 export default function NewsPage() {
@@ -65,10 +66,10 @@ export default function NewsPage() {
         <button
           onClick={loadNews}
           disabled={loading}
-          className="text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40"
+          className="text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 inline-flex items-center gap-1.5"
           style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
         >
-          {loading ? '⏳' : '↻'} Atualizar
+          <RotateCw size={12} className={loading ? 'animate-spin' : ''} /> Atualizar
         </button>
       </div>
 
@@ -136,7 +137,7 @@ export default function NewsPage() {
 
       {!loading && filtered.length === 0 && !error && (
         <div className="rounded-2xl border p-10 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <div className="text-3xl mb-2 opacity-40">📰</div>
+          <Newspaper size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
           <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>
             {search ? 'Nenhuma notícia encontrada com esse termo.' : 'Nenhuma notícia disponível agora.'}
           </p>
@@ -178,18 +179,18 @@ export default function NewsPage() {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1.5"
                   style={{ background: 'var(--primary-strong)', color: '#fff' }}
                 >
-                  Ler completa →
+                  Ler completa <ArrowRight size={12} />
                 </a>
                 <Link
                   href={watchExam(item.title)}
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1.5"
                   style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}
                   title="Adicionar este concurso à sua lista de acompanhamento"
                 >
-                  👀 Ficar de olho
+                  <Eye size={12} /> Ficar de olho
                 </Link>
               </div>
             </article>

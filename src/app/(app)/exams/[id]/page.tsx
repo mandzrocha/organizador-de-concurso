@@ -113,13 +113,14 @@ export default function ExamDetailPage() {
     const subjectIds = examSubjectRows.map(es => es.subject_id)
 
     const [topicsRes, logsRes] = await Promise.all([
-      // Topics are now scoped per exam. Legacy topics with exam_id IS NULL are
-      // also surfaced so pre-migration data still shows up.
+      // Topics são SEMPRE escopados por exam_id. Filtro estrito = topicos de
+      // outros concursos nunca aparecem aqui mesmo se as materias forem
+      // compartilhadas (caso clássico: BB e TJSP ambos com 'Lingua Portuguesa').
       supabase
         .from('topics')
         .select('*')
         .in('subject_id', subjectIds.length ? subjectIds : ['x'])
-        .or(`exam_id.eq.${id},exam_id.is.null`)
+        .eq('exam_id', id)
         .order('order_index'),
       supabase.from('study_logs').select('*').order('studied_at', { ascending: false }),
     ])

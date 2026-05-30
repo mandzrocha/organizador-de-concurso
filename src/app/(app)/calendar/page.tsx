@@ -6,6 +6,11 @@ import { CalendarPlan, Subject, Topic, ActivityType, ACTIVITY_LABELS, ACTIVITY_I
 import { isSupabaseConfigured } from '@/lib/config'
 import { format, addDays, startOfWeek, parseISO, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  ChevronLeft, ChevronRight, Sparkles, Plus, Check, X, RotateCcw, CornerDownRight,
+  CalendarDays, MapPin, BookOpen as BookOpenIcon, MoreHorizontal,
+} from 'lucide-react'
+import { ActivityIcon } from '@/lib/activity-icons'
 
 type PlanLoaded = CalendarPlan & {
   topic?: (Topic & { subject?: Subject }) | null
@@ -133,11 +138,11 @@ export default function CalendarPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>←</button>
+          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronLeft size={16} /></button>
           <h1 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             {format(weekDays[0], "d MMM", { locale: ptBR })} — {format(weekDays[6], "d MMM yyyy", { locale: ptBR })}
           </h1>
-          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>→</button>
+          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronRight size={16} /></button>
           <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-2 py-1 rounded" style={{ color: 'var(--primary-strong)' }}>
             Hoje
           </button>
@@ -148,7 +153,7 @@ export default function CalendarPage() {
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
         >
-          {generating ? '⏳ Gerando...' : '✨ Gerar cronograma com IA'}
+          <Sparkles size={14} /> {generating ? 'Gerando...' : 'Gerar cronograma com IA'}
         </button>
       </div>
 
@@ -295,14 +300,14 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
                 </p>
               )}
             </div>
-            <button onClick={onClose} className="text-lg" style={{ color: 'var(--text-subtle)' }}>✕</button>
+            <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-2">
           {plans.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-3xl mb-2 opacity-40">📅</div>
+              <CalendarDays size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
               <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhum plano para este dia.</p>
             </div>
           ) : (
@@ -331,10 +336,11 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
                     }}
                     title={isDone ? 'Marcar como pendente' : 'Concluir'}
                   >
-                    {isDone && <span className="text-xs text-white">✓</span>}
+                    {isDone && <Check size={13} strokeWidth={3} className="text-white" />}
                   </button>
 
-                  <span className="text-lg flex-shrink-0">{ACTIVITY_ICONS[plan.activity_type]}</span>
+                  <ActivityIcon type={plan.activity_type} size={18} className="flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -353,7 +359,7 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
                         </span>
                       )}
                       {plan.original_date && (
-                        <span className="text-xs" style={{ color: 'var(--warning)' }}>↩ reagendado</span>
+                        <span className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--warning)' }}><CornerDownRight size={11} /> reagendado</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
@@ -380,20 +386,20 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
                     {!isDone && !isSkipped && (
                       <button
                         onClick={() => onSkip(plan.id)}
-                        className="text-xs px-2 py-1 rounded-md"
+                        className="px-2 py-1 rounded-md flex items-center"
                         style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}
                         title="Pular (reagendar amanhã)"
                       >
-                        ↩
+                        <CornerDownRight size={12} />
                       </button>
                     )}
                     <button
                       onClick={() => onDelete(plan.id)}
-                      className="text-xs px-2 py-1 rounded-md"
+                      className="px-2 py-1 rounded-md flex items-center"
                       style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
                       title="Excluir"
                     >
-                      ✕
+                      <X size={12} />
                     </button>
                   </div>
                 </div>
@@ -405,10 +411,10 @@ function DayDetailModal({ date, plans, onClose, onDone, onUndone, onSkip, onDele
         <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
           <button
             onClick={onAdd}
-            className="w-full py-2.5 rounded-xl text-sm font-medium"
+            className="w-full py-2.5 rounded-xl text-sm font-medium inline-flex items-center justify-center gap-1.5"
             style={{ background: 'var(--primary-strong)', color: '#fff' }}
           >
-            + Adicionar plano para este dia
+            <Plus size={14} strokeWidth={2.5} /> Adicionar plano para este dia
           </button>
         </div>
       </div>
@@ -433,10 +439,10 @@ function PlanItem({ plan }: { plan: PlanLoaded }) {
       }}
     >
       {plan.original_date && (
-        <div className="text-xs mb-0.5" style={{ color: 'var(--warning)' }}>↩ reagendado</div>
+        <div className="text-xs mb-0.5 inline-flex items-center gap-1" style={{ color: 'var(--warning)' }}><CornerDownRight size={10} /> reagendado</div>
       )}
-      <div className="flex items-start gap-1">
-        <span className="text-xs mt-0.5">{ACTIVITY_ICONS[plan.activity_type]}</span>
+      <div className="flex items-start gap-1.5">
+        <ActivityIcon type={plan.activity_type} size={11} className="mt-0.5" style={{ color: 'var(--text-muted)' }} />
         <div className="flex-1 min-w-0">
           <p
             className="text-xs leading-tight truncate font-medium"
@@ -499,32 +505,32 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
           <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             Planejar para {format(parsedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </h2>
-          <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}>✕</button>
+          <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
         </div>
 
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => { setMode('topic'); setTarget(null) }}
-            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all"
+            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all inline-flex items-center justify-center gap-1.5"
             style={{
               background: mode === 'topic' ? 'var(--primary-soft)' : 'var(--surface-hover)',
               borderColor: mode === 'topic' ? 'var(--primary)' : 'var(--border)',
               color: mode === 'topic' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
             }}
           >
-            📍 Tópico específico
+            <MapPin size={14} /> Tópico específico
           </button>
           <button
             onClick={() => { setMode('subject'); setTarget(null) }}
-            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all"
+            className="px-3 py-2.5 rounded-lg border text-sm font-medium transition-all inline-flex items-center justify-center gap-1.5"
             style={{
               background: mode === 'subject' ? 'var(--primary-soft)' : 'var(--surface-hover)',
               borderColor: mode === 'subject' ? 'var(--primary)' : 'var(--border)',
               color: mode === 'subject' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
             }}
           >
-            📚 Matéria inteira
+            <BookOpenIcon size={14} /> Matéria inteira
           </button>
         </div>
 
@@ -598,7 +604,7 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
                   color: activity === act ? 'var(--primary-soft-text)' : 'var(--text-muted)',
                 }}
               >
-                {ACTIVITY_ICONS[act]} {ACTIVITY_LABELS[act]}
+                <ActivityIcon type={act} size={12} /> {ACTIVITY_LABELS[act]}
               </button>
             ))}
           </div>
@@ -700,10 +706,10 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
         <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium" style={{ color: 'var(--primary)' }}>✨ Gerar cronograma com IA</p>
+              <p className="text-xs font-medium inline-flex items-center gap-1.5" style={{ color: 'var(--primary)' }}><Sparkles size={12} /> Gerar cronograma com IA</p>
               <h2 className="text-base font-semibold mt-0.5" style={{ color: 'var(--text)' }}>Como você quer estudar?</h2>
             </div>
-            <button onClick={onClose} className="text-lg" style={{ color: 'var(--text-subtle)' }}>✕</button>
+            <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
           </div>
           {/* Step indicator */}
           <div className="flex gap-2 mt-4">
@@ -938,7 +944,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
               </label>
 
               <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-                <p className="font-medium mb-1">📋 Resumo</p>
+                <p className="font-medium mb-1">Resumo</p>
                 <p>· {daysPerWeek.length} dias/semana, {hoursPerDay}h por dia</p>
                 <p>· Cronograma de {horizonDays} dias</p>
                 <p>· Foco: {focus === 'primary' ? 'concurso principal' : focus === 'all' ? 'todos os concursos' : `${specificExamIds.length} concurso(s) selecionado(s)`}</p>
@@ -956,7 +962,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
         <div className="px-5 pb-5 flex gap-3">
           {step > 1 ? (
             <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-              ← Voltar
+              Voltar
             </button>
           ) : (
             <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
@@ -970,16 +976,16 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
               style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
-              Próximo →
+              Próximo
             </button>
           ) : (
             <button
               onClick={submit}
               disabled={generating}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
               style={{ background: 'var(--primary-strong)', color: '#fff' }}
             >
-              {generating ? '⏳ Gerando...' : '✨ Gerar cronograma'}
+              {generating ? 'Gerando...' : <><Sparkles size={14} /> Gerar cronograma</>}
             </button>
           )}
         </div>

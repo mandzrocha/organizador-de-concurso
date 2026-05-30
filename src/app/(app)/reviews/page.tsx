@@ -8,6 +8,7 @@ import { sm2 } from '@/lib/sm2'
 import { isSupabaseConfigured } from '@/lib/config'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, X } from 'lucide-react'
 
 type RevWithTopic = RevisionSchedule & { topic: Topic & { subject: Subject; exams?: { name: string; is_primary: boolean }[] } }
 type Tab = 'pending' | 'upcoming' | 'history' | 'stats'
@@ -214,7 +215,7 @@ export default function ReviewsPage() {
           {overdue.length > 0 && (
             <section>
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--danger)' }}>
-                🚨 Em atraso
+                <AlertTriangle size={15} /> Em atraso
                 <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--danger-soft)' }}>{overdue.length}</span>
               </h3>
               <div className="space-y-2">
@@ -226,7 +227,7 @@ export default function ReviewsPage() {
           {dueToday.length > 0 && (
             <section>
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--warning)' }}>
-                📌 Para hoje
+                <Clock size={15} /> Para hoje
                 <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--warning-soft)' }}>{dueToday.length}</span>
               </h3>
               <div className="space-y-2">
@@ -237,7 +238,7 @@ export default function ReviewsPage() {
 
           {overdue.length === 0 && dueToday.length === 0 && (
             <div className="rounded-2xl border p-10 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-              <div className="text-4xl mb-2">🎉</div>
+              <PartyPopper size={40} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--success)' }} />
               <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>Nenhuma revisão pendente!</p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Você está em dia. Continue estudando para criar novas revisões.</p>
             </div>
@@ -268,7 +269,7 @@ export default function ReviewsPage() {
           ) : (
             recentReviews.map(log => (
               <div key={log.id} className="rounded-xl border p-3 flex items-center gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'var(--success-soft)' }}>🔁</div>
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}><RotateCw size={16} /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{log.topic?.name}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -313,7 +314,7 @@ export default function ReviewsPage() {
           {/* Struggling topics */}
           <div>
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
-              🆘 Tópicos com dificuldade
+              <AlertCircle size={15} style={{ color: 'var(--danger)' }} /> Tópicos com dificuldade
               <span className="text-xs font-medium px-1.5 py-0.5 rounded-md" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>{stats.struggling.length}</span>
             </h3>
             {stats.struggling.length === 0 ? (
@@ -438,11 +439,11 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="relative group">
           <button
-            className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors"
+            className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5"
             style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
             title="Adiar revisão"
           >
-            ⏱ Adiar
+            <Clock size={12} /> Adiar
           </button>
           <div
             className="absolute right-0 top-9 z-10 hidden group-hover:block w-40 rounded-xl border overflow-hidden"
@@ -456,10 +457,10 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
         </div>
         <button
           onClick={onStart}
-          className="text-xs px-3 py-1.5 rounded-lg font-medium"
+          className="text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1"
           style={{ background: 'var(--primary-strong)', color: '#fff' }}
         >
-          Revisar →
+          Revisar <ArrowRight size={12} />
         </button>
       </div>
     </div>
@@ -481,7 +482,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onCancel()}>
       <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
         <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-xs mb-0.5" style={{ color: 'var(--primary)' }}>🔁 Revisar</p>
+          <p className="text-xs mb-0.5 inline-flex items-center gap-1.5" style={{ color: 'var(--primary)' }}><RotateCw size={11} /> Revisar</p>
           <h2 className="text-lg font-semibold leading-tight" style={{ color: 'var(--text)' }}>{rev.topic?.name}</h2>
           <div className="flex items-center gap-3 mt-2 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
             {rev.topic?.subject && (

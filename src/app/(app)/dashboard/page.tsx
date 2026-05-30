@@ -8,6 +8,8 @@ import { getTopicCompletionPercent } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/config'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Plus, Star, FolderOpen, ClipboardList, RotateCw, Check, ArrowRight } from 'lucide-react'
+import { ActivityIcon } from '@/lib/activity-icons'
 
 interface DashboardData {
   exams: (Exam & { subject_count: number; progress: number })[]
@@ -113,10 +115,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
-        <div className="text-center">
-          <div className="text-2xl mb-2">⏳</div>
-          <p className="text-sm">Carregando...</p>
-        </div>
+        <p className="text-sm">Carregando...</p>
       </div>
     )
   }
@@ -137,10 +136,10 @@ export default function DashboardPage() {
         </div>
         <Link
           href="/exams/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--primary-strong)', color: '#fff' }}
         >
-          + Novo Concurso
+          <Plus size={14} strokeWidth={2.5} /> Novo Concurso
         </Link>
       </div>
 
@@ -156,8 +155,8 @@ export default function DashboardPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-                        ★ Foco principal
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                        <Star size={11} fill="currentColor" strokeWidth={0} /> Foco principal
                       </span>
                     </div>
                     <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{primaryExam.name}</h2>
@@ -165,8 +164,8 @@ export default function DashboardPage() {
                       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{primaryExam.organization}</p>
                     )}
                   </div>
-                  <Link href={`/exams/${primaryExam.id}`} className="text-sm" style={{ color: 'var(--primary-strong)' }}>
-                    Ver detalhes →
+                  <Link href={`/exams/${primaryExam.id}`} className="text-sm inline-flex items-center gap-1" style={{ color: 'var(--primary-strong)' }}>
+                    Ver detalhes <ArrowRight size={13} />
                   </Link>
                 </div>
 
@@ -188,8 +187,8 @@ export default function DashboardPage() {
                     Prova: {format(parseISO(primaryExam.exam_date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
                 ) : (
-                  <p className="text-xs mt-3 flex items-center gap-1" style={{ color: 'var(--warning)' }}>
-                    <span>📂</span> Pré-edital — sem data definida
+                  <p className="text-xs mt-3 flex items-center gap-1.5" style={{ color: 'var(--warning)' }}>
+                    <FolderOpen size={12} /> Pré-edital — sem data definida
                   </p>
                 )}
               </div>
@@ -202,8 +201,8 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {data?.recentLogs.map(log => (
                     <div key={log.id} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: 'var(--surface-hover)' }}>
-                        {log.activity_type === 'video' ? '🎬' : log.activity_type === 'exercises' ? '✏️' : log.activity_type === 'reading' ? '📖' : '🔁'}
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
+                        <ActivityIcon type={log.activity_type} size={15} strokeWidth={1.75} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{log.topic?.name}</p>
@@ -246,7 +245,7 @@ export default function DashboardPage() {
                           borderColor: plan.status === 'done' ? 'var(--primary-strong)' : 'var(--border-strong)',
                         }}
                       >
-                        {plan.status === 'done' && <span className="text-xs text-white">✓</span>}
+                        {plan.status === 'done' && <Check size={11} strokeWidth={3} className="text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: plan.status === 'done' ? 'var(--text-subtle)' : 'var(--text)', textDecoration: plan.status === 'done' ? 'line-through' : 'none' }}>
@@ -256,8 +255,8 @@ export default function DashboardPage() {
                           {plan.topic?.subject?.name}
                         </p>
                       </div>
-                      <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>
-                        {plan.activity_type === 'video' ? '🎬' : plan.activity_type === 'exercises' ? '✏️' : plan.activity_type === 'reading' ? '📖' : '🔁'}
+                      <span className="flex-shrink-0" style={{ color: 'var(--text-subtle)' }}>
+                        <ActivityIcon type={plan.activity_type} size={13} />
                       </span>
                     </button>
                   ))}
@@ -280,7 +279,7 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   {data?.dueReviews.slice(0, 4).map(rev => (
                     <div key={rev.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--surface-hover)' }}>
-                      <span className="text-sm">🔁</span>
+                      <RotateCw size={14} style={{ color: 'var(--danger)' }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{rev.topic?.name}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{rev.topic?.subject?.name}</p>
@@ -323,17 +322,17 @@ export default function DashboardPage() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="text-5xl mb-4">📋</div>
+      <ClipboardList size={56} strokeWidth={1.25} className="mb-4" style={{ color: 'var(--text-subtle)' }} />
       <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>Nenhum concurso cadastrado</h2>
       <p className="text-sm mb-6 max-w-xs" style={{ color: 'var(--text-muted)' }}>
         Adicione seu primeiro concurso com o edital em PDF para começar a organizar seus estudos.
       </p>
       <Link
         href="/exams/new"
-        className="px-5 py-2.5 rounded-lg text-sm font-medium"
+        className="px-5 py-2.5 rounded-lg text-sm font-medium inline-flex items-center gap-1.5"
         style={{ background: 'var(--primary-strong)', color: '#fff' }}
       >
-        + Adicionar primeiro concurso
+        <Plus size={14} strokeWidth={2.5} /> Adicionar primeiro concurso
       </Link>
     </div>
   )

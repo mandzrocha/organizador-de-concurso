@@ -238,6 +238,28 @@ export default function EditExamPage() {
         const { data: existing } = await supabase.from('subjects').select('id').eq('name', sub.name).maybeSingle()
         if (existing) {
           subjectId = existing.id
+          // Auto-migrate: legacy null-exam_id topics belong to the original exam
+          const { data: legacyTopics } = await supabase
+            .from('topics')
+            .select('id')
+            .eq('subject_id', subjectId)
+            .is('exam_id', null)
+          if (legacyTopics && legacyTopics.length > 0) {
+            const { data: oldestLink } = await supabase
+              .from('exam_subjects')
+              .select('exam_id')
+              .eq('subject_id', subjectId)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            if (oldestLink?.exam_id) {
+              await supabase
+                .from('topics')
+                .update({ exam_id: oldestLink.exam_id })
+                .eq('subject_id', subjectId)
+                .is('exam_id', null)
+            }
+          }
         } else {
           const { data: newSub } = await supabase.from('subjects').insert({ name: sub.name, color: sub.color }).select().single()
           subjectId = newSub!.id
