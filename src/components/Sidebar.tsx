@@ -19,14 +19,13 @@ export function Sidebar() {
 
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col border-r" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-      <div className="px-5 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold"
-            style={{ background: 'linear-gradient(135deg, var(--primary-strong), var(--primary))', color: '#fff' }}
-          >E</div>
-          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>EditalFocus</span>
-        </div>
+      <div className="px-4 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-symbol.svg" alt="" className="w-7 h-7" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-wordmark.svg" alt="ConcurFlow" className="h-5 w-auto" />
+        </Link>
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
@@ -63,7 +62,7 @@ export function Sidebar() {
           </span>
           <ArrowLeftRight size={12} style={{ color: 'var(--text-subtle)' }} />
         </button>
-        <p className="text-xs px-1" style={{ color: 'var(--text-subtle)' }}>EditalFocus v1.0</p>
+        <p className="text-xs px-1" style={{ color: 'var(--text-subtle)' }}>ConcurFlow v1.0</p>
       </div>
     </aside>
   )

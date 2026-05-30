@@ -40,7 +40,7 @@ async function fetchSource(name: string, url: string): Promise<NewsItem[]> {
     const res = await fetch(url, {
       next: { revalidate: 1800 },
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; EditalFocus/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; ConcurFlow/1.0)',
         Accept: 'application/rss+xml, application/xml, text/xml, */*',
       },
     })
