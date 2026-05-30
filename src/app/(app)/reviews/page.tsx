@@ -8,7 +8,8 @@ import { sm2 } from '@/lib/sm2'
 import { isSupabaseConfigured } from '@/lib/config'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, X } from 'lucide-react'
+import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { ActivityIcon } from '@/lib/activity-icons'
 
 type RevWithTopic = RevisionSchedule & { topic: Topic & { subject: Subject; exams?: { name: string; is_primary: boolean }[] } }
 type Tab = 'pending' | 'upcoming' | 'history' | 'stats'
@@ -33,6 +34,28 @@ function difficultyLabel(ef: number, repetitions: number): { label: string; colo
   if (ef >= 1.7) return { label: 'Alta',    color: 'var(--warning)' }
   return                  { label: 'Crítica', color: 'var(--danger)' }
 }
+
+const EXERCISE_THRESHOLD = 85
+
+/**
+ * Maps an exercise/question accuracy percentage to an SM-2 quality (1-5).
+ * The 85% line is the pass mark: >= 85% yields quality >= 4 (longer interval),
+ * below 85% yields quality <= 3 (shorter interval / reset).
+ */
+function getExerciseQuality(pct: number): number {
+  if (pct >= 95) return 5
+  if (pct >= EXERCISE_THRESHOLD) return 4
+  if (pct >= 70) return 3
+  if (pct >= 50) return 2
+  return 1
+}
+
+const REVIEW_TYPES: { type: ActivityType; label: string; desc: string }[] = [
+  { type: 'exercises', label: 'Questões / Exercícios', desc: 'Resolvi questões sobre o tópico' },
+  { type: 'video',     label: 'Videoaula',             desc: 'Reassisti a aula ou um resumo em vídeo' },
+  { type: 'reading',   label: 'Leitura',               desc: 'Reli a teoria, resumo ou anotações' },
+  { type: 'review',    label: 'Revisão livre',         desc: 'Recordei de cabeça, sem material' },
+]
 
 export default function ReviewsPage() {
   const supabase = createClient()
@@ -64,18 +87,29 @@ export default function ReviewsPage() {
     setLoading(false)
   }
 
-  async function submitReview(quality: number) {
+  async function submitReview(payload: {
+    quality: number
+    activityType: ActivityType
+    totalQuestions?: number | null
+    correctAnswers?: number | null
+    notes?: string | null
+  }) {
     if (!doing) return
     setSaving(true)
-    const result = sm2(quality, doing.repetitions, doing.ease_factor, doing.interval_days)
+    const result = sm2(payload.quality, doing.repetitions, doing.ease_factor, doing.interval_days)
     await supabase.from('revision_schedule').update({
       ...result,
       last_reviewed: new Date().toISOString().split('T')[0],
     }).eq('id', doing.id)
     await supabase.from('study_logs').insert({
       topic_id: doing.topic_id,
+      // The session is always logged as a review; the modality (videoaula, questões, etc.)
+      // is stored in notes so the review history keeps showing it.
       activity_type: 'review' as ActivityType,
       studied_at: new Date().toISOString().split('T')[0],
+      total_questions: payload.totalQuestions ?? null,
+      correct_answers: payload.correctAnswers ?? null,
+      notes: payload.notes ?? null,
     })
     setSaving(false)
     setDoing(null)
@@ -272,13 +306,14 @@ export default function ReviewsPage() {
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}><RotateCw size={16} /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{log.topic?.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
                     {log.topic?.subject && (
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: log.topic.subject.color }} />
                         {log.topic.subject.name}
                       </span>
                     )}
+                    {log.notes && <span>· {log.notes}</span>}
                     <span>· {format(parseISO(log.studied_at), "d 'de' MMM yyyy", { locale: ptBR })}</span>
                   </div>
                 </div>
@@ -471,12 +506,47 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
   rev: RevWithTopic
   saving: boolean
   onCancel: () => void
-  onSubmit: (q: number) => void
+  onSubmit: (payload: { quality: number; activityType: ActivityType; totalQuestions?: number | null; correctAnswers?: number | null; notes?: string | null }) => void
 }) {
   const difficulty = difficultyLabel(rev.ease_factor, rev.repetitions)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const lastDays = rev.last_reviewed ? differenceInDays(today, parseISO(rev.last_reviewed)) : null
+
+  // Two-phase flow: 1) pick the review modality, 2) register the result.
+  const [type, setType] = useState<ActivityType | null>(null)
+  const [correct, setCorrect] = useState('')
+  const [total, setTotal] = useState('')
+
+  const typeMeta = REVIEW_TYPES.find(t => t.type === type)
+
+  // Exercise math
+  const correctNum = parseInt(correct, 10)
+  const totalNum = parseInt(total, 10)
+  const validExercise = !isNaN(correctNum) && !isNaN(totalNum) && totalNum > 0 && correctNum >= 0 && correctNum <= totalNum
+  const pct = validExercise ? Math.round((correctNum / totalNum) * 100) : 0
+  const exerciseQuality = validExercise ? getExerciseQuality(pct) : 0
+  const passed = pct >= EXERCISE_THRESHOLD
+
+  function submitExercise() {
+    if (!validExercise || saving) return
+    onSubmit({
+      quality: exerciseQuality,
+      activityType: 'exercises',
+      totalQuestions: totalNum,
+      correctAnswers: correctNum,
+      notes: `Questões: ${correctNum}/${totalNum} (${pct}%)`,
+    })
+  }
+
+  function submitQuality(quality: number) {
+    if (saving || !type) return
+    onSubmit({
+      quality,
+      activityType: type,
+      notes: typeMeta ? `${typeMeta.label}` : null,
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onCancel()}>
@@ -510,40 +580,125 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
           )}
         </div>
 
-        <div className="p-5 space-y-3">
-          <div className="p-3 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
-            <p className="font-medium mb-0.5" style={{ color: 'var(--text)' }}>Como foi lembrar deste tópico?</p>
-            <p className="text-xs">Avalie a qualidade da sua memorização. Isso ajusta o intervalo da próxima revisão.</p>
-          </div>
-
-          <div className="space-y-2">
-            {QUALITY_OPTIONS.map(opt => {
-              const nextResult = sm2(opt.value, rev.repetitions, rev.ease_factor, rev.interval_days)
-              return (
+        {/* Step 1 — choose review type */}
+        {!type && (
+          <div className="p-5 space-y-3">
+            <div className="p-3 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
+              <p className="font-medium mb-0.5" style={{ color: 'var(--text)' }}>Como você revisou este tópico?</p>
+              <p className="text-xs">Escolha o tipo de revisão para registrar.</p>
+            </div>
+            <div className="space-y-2">
+              {REVIEW_TYPES.map(t => (
                 <button
-                  key={opt.value}
-                  onClick={() => !saving && onSubmit(opt.value)}
-                  disabled={saving}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all disabled:opacity-50"
+                  key={t.type}
+                  onClick={() => setType(t.type)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all hover:border-[var(--primary)]"
                   style={{ borderColor: 'var(--border)', background: 'var(--surface-hover)' }}
                 >
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: opt.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{opt.label}</p>
-                      <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>
-                        próxima em {nextResult.interval_days}d
-                      </span>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+                    <ActivityIcon type={t.type} size={16} />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{t.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.desc}</p>
+                  </div>
+                  <ArrowRight size={14} style={{ color: 'var(--text-subtle)' }} />
                 </button>
-              )
-            })}
+              ))}
+            </div>
+            <button onClick={onCancel} className="w-full text-sm py-2" style={{ color: 'var(--text-subtle)' }}>Cancelar</button>
           </div>
+        )}
 
-          <button onClick={onCancel} className="w-full text-sm py-2" style={{ color: 'var(--text-subtle)' }}>Cancelar</button>
-        </div>
+        {/* Step 2a — exercises: register correct/total */}
+        {type === 'exercises' && (
+          <div className="p-5 space-y-4">
+            <button onClick={() => setType(null)} className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+              <ArrowLeft size={12} /> Trocar tipo
+            </button>
+            <div>
+              <p className="text-sm font-medium mb-3" style={{ color: 'var(--text)' }}>Quantas questões você acertou?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Acertos</label>
+                  <input
+                    type="number" min={0} value={correct} onChange={e => setCorrect(e.target.value)} autoFocus
+                    className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-hover)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Total de questões</label>
+                  <input
+                    type="number" min={1} value={total} onChange={e => setTotal(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-hover)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {validExercise && (
+              <div className="p-3 rounded-xl flex items-center gap-3" style={{ background: passed ? 'var(--success-soft)' : 'var(--warning-soft)' }}>
+                <div className="text-2xl font-bold" style={{ color: passed ? 'var(--success)' : 'var(--warning)' }}>{pct}%</div>
+                <div className="flex-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {passed ? (
+                    <p><span className="font-medium" style={{ color: 'var(--text)' }}>Acima de {EXERCISE_THRESHOLD}%.</span> Conteúdo bem fixado — a próxima revisão será espaçada para mais longe.</p>
+                  ) : (
+                    <p><span className="font-medium" style={{ color: 'var(--text)' }}>Abaixo de {EXERCISE_THRESHOLD}%.</span> Precisa reforçar — a próxima revisão virá em breve.</p>
+                  )}
+                  <p className="mt-0.5">Próxima revisão em <span className="font-medium" style={{ color: 'var(--text)' }}>{sm2(exerciseQuality, rev.repetitions, rev.ease_factor, rev.interval_days).interval_days} dias</span></p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={submitExercise}
+              disabled={!validExercise || saving}
+              className="w-full py-2.5 rounded-xl text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ background: 'var(--primary-strong)', color: '#fff' }}
+            >
+              <Check size={15} /> {saving ? 'Salvando...' : 'Registrar revisão'}
+            </button>
+          </div>
+        )}
+
+        {/* Step 2b — non-exercise types: subjective quality */}
+        {type && type !== 'exercises' && (
+          <div className="p-5 space-y-3">
+            <button onClick={() => setType(null)} className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+              <ArrowLeft size={12} /> Trocar tipo
+            </button>
+            <div className="p-3 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
+              <p className="font-medium mb-0.5" style={{ color: 'var(--text)' }}>Como foi lembrar deste tópico?</p>
+              <p className="text-xs">Achou fácil → a próxima revisão será mais espaçada. Achou difícil → virá mais cedo.</p>
+            </div>
+
+            <div className="space-y-2">
+              {QUALITY_OPTIONS.map(opt => {
+                const nextResult = sm2(opt.value, rev.repetitions, rev.ease_factor, rev.interval_days)
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => submitQuality(opt.value)}
+                    disabled={saving}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all disabled:opacity-50"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface-hover)' }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: opt.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{opt.label}</p>
+                        <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>
+                          próxima em {nextResult.interval_days}d
+                        </span>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
