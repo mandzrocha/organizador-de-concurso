@@ -92,6 +92,7 @@ export default function ReviewsPage() {
     activityType: ActivityType
     totalQuestions?: number | null
     correctAnswers?: number | null
+    durationMinutes?: number | null
     notes?: string | null
   }) {
     if (!doing) return
@@ -109,6 +110,7 @@ export default function ReviewsPage() {
       studied_at: new Date().toISOString().split('T')[0],
       total_questions: payload.totalQuestions ?? null,
       correct_answers: payload.correctAnswers ?? null,
+      duration_minutes: payload.durationMinutes ?? null,
       notes: payload.notes ?? null,
     })
     setSaving(false)
@@ -535,7 +537,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
   rev: RevWithTopic
   saving: boolean
   onCancel: () => void
-  onSubmit: (payload: { quality: number; activityType: ActivityType; totalQuestions?: number | null; correctAnswers?: number | null; notes?: string | null }) => void
+  onSubmit: (payload: { quality: number; activityType: ActivityType; totalQuestions?: number | null; correctAnswers?: number | null; durationMinutes?: number | null; notes?: string | null }) => void
 }) {
   const difficulty = difficultyLabel(rev.ease_factor, rev.repetitions)
   const today = new Date()
@@ -546,8 +548,12 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
   const [type, setType] = useState<ActivityType | null>(null)
   const [correct, setCorrect] = useState('')
   const [total, setTotal] = useState('')
+  const [duration, setDuration] = useState('')
 
   const typeMeta = REVIEW_TYPES.find(t => t.type === type)
+
+  const durationNum = parseInt(duration, 10)
+  const durationMinutes = !isNaN(durationNum) && durationNum > 0 ? durationNum : null
 
   // Exercise math
   const correctNum = parseInt(correct, 10)
@@ -564,6 +570,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
       activityType: 'exercises',
       totalQuestions: totalNum,
       correctAnswers: correctNum,
+      durationMinutes,
       notes: `Questões: ${correctNum}/${totalNum} (${pct}%)`,
     })
   }
@@ -573,6 +580,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
     onSubmit({
       quality,
       activityType: type,
+      durationMinutes,
       notes: typeMeta ? `${typeMeta.label}` : null,
     })
   }
@@ -665,6 +673,14 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
               </div>
             </div>
 
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Tempo de estudo (min) <span style={{ color: 'var(--text-subtle)' }}>· opcional</span></label>
+              <input
+                type="number" min={0} value={duration} onChange={e => setDuration(e.target.value)} placeholder="ex: 30"
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-hover)', borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
+
             {validExercise && (
               <div className="p-3 rounded-xl flex items-center gap-3" style={{ background: passed ? 'var(--success-soft)' : 'var(--warning-soft)' }}>
                 <div className="text-2xl font-bold" style={{ color: passed ? 'var(--success)' : 'var(--warning)' }}>{pct}%</div>
@@ -696,6 +712,14 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
             <button onClick={() => setType(null)} className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
               <ArrowLeft size={12} /> Trocar tipo
             </button>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Tempo de estudo (min) <span style={{ color: 'var(--text-subtle)' }}>· opcional</span></label>
+              <input
+                type="number" min={0} value={duration} onChange={e => setDuration(e.target.value)} placeholder="ex: 30"
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-hover)', borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
+
             <div className="p-3 rounded-xl text-sm" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>
               <p className="font-medium mb-0.5" style={{ color: 'var(--text)' }}>Como foi lembrar deste tópico?</p>
               <p className="text-xs">Achou fácil → a próxima revisão será mais espaçada. Achou difícil → virá mais cedo.</p>
