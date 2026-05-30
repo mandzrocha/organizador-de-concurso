@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { RevisionSchedule, Topic, Subject, ActivityType, StudyLog } from '@/lib/types'
@@ -414,6 +414,18 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
   const days = rev.next_review ? differenceInDays(parseISO(rev.next_review), today) : 0
   const lastDays = rev.last_reviewed ? differenceInDays(today, parseISO(rev.last_reviewed)) : null
 
+  const [postponeOpen, setPostponeOpen] = useState(false)
+  const postponeRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!postponeOpen) return
+    function onDown(e: MouseEvent) {
+      if (postponeRef.current && !postponeRef.current.contains(e.target as Node)) setPostponeOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [postponeOpen])
+
   const statusColor =
     status === 'overdue' ? 'var(--danger)' :
     status === 'today'   ? 'var(--warning)' :
@@ -472,23 +484,40 @@ function ReviewRow({ rev, status, onStart, onPostpone }: {
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="relative group">
+        <div className="relative" ref={postponeRef}>
           <button
+            onClick={() => setPostponeOpen(o => !o)}
             className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            style={{
+              borderColor: postponeOpen ? 'var(--primary)' : 'var(--border)',
+              color: postponeOpen ? 'var(--primary)' : 'var(--text-muted)',
+            }}
             title="Adiar revisão"
           >
             <Clock size={12} /> Adiar
           </button>
-          <div
-            className="absolute right-0 top-9 z-10 hidden group-hover:block w-40 rounded-xl border overflow-hidden"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
-          >
-            <button onClick={() => onPostpone(1)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 1 dia</button>
-            <button onClick={() => onPostpone(3)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 3 dias</button>
-            <button onClick={() => onPostpone(7)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 1 semana</button>
-            <button onClick={() => onPostpone(14)} className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>+ 2 semanas</button>
-          </div>
+          {postponeOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl border overflow-hidden"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              {[
+                { d: 1, label: '+ 1 dia' },
+                { d: 3, label: '+ 3 dias' },
+                { d: 7, label: '+ 1 semana' },
+                { d: 14, label: '+ 2 semanas' },
+              ].map(opt => (
+                <button
+                  key={opt.d}
+                  onClick={() => { onPostpone(opt.d); setPostponeOpen(false) }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)]"
+                  style={{ color: 'var(--text)' }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button
           onClick={onStart}
