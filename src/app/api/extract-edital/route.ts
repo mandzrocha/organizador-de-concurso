@@ -4,7 +4,21 @@ import { extractTextFromPdf } from '@/lib/pdf'
 
 export const maxDuration = 60
 
-const EXTRACT_PROMPT = `Você é um especialista em editais de concursos públicos brasileiros. Sua tarefa é localizar a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS / ANEXO de matérias e extrair o programa de estudos completo.
+function buildPrompt(existingSubjects: string[]): string {
+  const existingBlock = existingSubjects.length > 0
+    ? `\n\nMATÉRIAS JÁ CADASTRADAS PELO USUÁRIO em outros concursos:
+${existingSubjects.map(s => `  - ${s}`).join('\n')}
+
+IMPORTANTE sobre equivalência de matérias:
+- Se uma matéria extraída do edital for EQUIVALENTE a uma da lista acima, use o NOME EXATO da matéria já cadastrada. Exemplos:
+  · "Português" ≈ "Língua Portuguesa" → use "Língua Portuguesa"
+  · "Conhecimentos de Direito Constitucional" ≈ "Direito Constitucional" → use "Direito Constitucional"
+  · "Noções de Informática" ≈ "Informática" → use "Informática"
+- Isso permite ao usuário ver progresso consolidado entre concursos.
+- ATENÇÃO: NÃO COPIE os tópicos da matéria antiga. Extraia EXCLUSIVAMENTE os tópicos do edital atual, mesmo que a matéria tenha o mesmo nome.`
+    : ''
+
+  return `Você é um especialista em editais de concursos públicos brasileiros. Sua tarefa é localizar a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS / ANEXO de matérias e extrair o programa de estudos completo.
 
 Localize a seção do programa das provas (geralmente perto do fim do documento, podendo estar dividida em BLOCOS) e extraia TODAS as matérias (disciplinas) e seus respectivos tópicos.
 
@@ -12,7 +26,7 @@ ATENÇÃO:
 - O documento pode ter uma tabela-resumo das matérias E uma seção detalhada com os tópicos. Use sempre a versão DETALHADA (com a lista numerada de tópicos).
 - Se as matérias estiverem agrupadas em "BLOCOS" (ex: "BLOCO II: Conhecimentos em Direito" contendo Direito Penal, Direito Processual Penal, etc.), trate cada disciplina interna como uma MATÉRIA separada — não use o nome do bloco como matéria.
 - Inclua TODAS as matérias, sem exceção (Língua Portuguesa, todas as de Direito, Atualidades, Matemática, Informática, Raciocínio Lógico, etc.).
-- Liste TODOS os tópicos de cada matéria, na ordem em que aparecem.
+- Liste TODOS os tópicos de cada matéria, na ordem em que aparecem NO EDITAL ATUAL.${existingBlock}
 
 Retorne APENAS um JSON válido neste formato exato:
 {"subjects":[{"name":"Nome da Matéria","topics":["Tópico 1","Tópico 2"]}]}
@@ -21,12 +35,18 @@ Regras:
 - Cada tópico deve ser uma string. Se for muito longo (>180 caracteres), resuma mantendo o sentido e referências legais (artigos, leis).
 - Ignore cargos, salários, vagas, inscrições, cronograma, locais de prova, despachos e demais conteúdos administrativos.
 - NÃO invente matérias ou tópicos que não estejam no documento.`
+}
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const files = formData.getAll('files') as File[]
     if (!files.length) return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
+
+    // Existing subjects from other exams (helps AI detect equivalences)
+    const existingSubjectsRaw = formData.get('existingSubjects') as string | null
+    const existingSubjects: string[] = existingSubjectsRaw ? JSON.parse(existingSubjectsRaw) : []
+    const EXTRACT_PROMPT = buildPrompt(existingSubjects)
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
     const model = genAI.getGenerativeModel({

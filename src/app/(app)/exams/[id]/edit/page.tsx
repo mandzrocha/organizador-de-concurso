@@ -145,11 +145,13 @@ export default function EditExamPage() {
             .from('topics')
             .select('order_index')
             .eq('subject_id', subjectId)
+            .eq('exam_id', id)
             .order('order_index', { ascending: false })
             .limit(1)
           const baseOrder = (existing?.[0]?.order_index ?? -1) + 1
           await supabase.from('topics').insert(newTopics.map((t, i) => ({
             subject_id: subjectId,
+            exam_id: id,
             name: t.name,
             order_index: baseOrder + i,
           })))
@@ -220,9 +222,15 @@ export default function EditExamPage() {
         } else {
           const { data: newSub } = await supabase.from('subjects').insert({ name: sub.name, color: sub.color }).select().single()
           subjectId = newSub!.id
-          const topicInserts = sub.topics.map((name, i) => ({ subject_id: subjectId, name, order_index: i }))
-          if (topicInserts.length > 0) await supabase.from('topics').insert(topicInserts)
         }
+        // Always create topics scoped to THIS exam (don't reuse other exam's topics)
+        const topicInserts = sub.topics.map((name, i) => ({
+          subject_id: subjectId,
+          exam_id: id,
+          name,
+          order_index: i,
+        }))
+        if (topicInserts.length > 0) await supabase.from('topics').insert(topicInserts)
         await supabase.from('exam_subjects').upsert({ exam_id: id, subject_id: subjectId })
       }
 

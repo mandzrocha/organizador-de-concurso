@@ -102,7 +102,14 @@ export default function ExamDetailPage() {
     const subjectIds = examSubjectRows.map(es => es.subject_id)
 
     const [topicsRes, logsRes] = await Promise.all([
-      supabase.from('topics').select('*').in('subject_id', subjectIds.length ? subjectIds : ['x']).order('order_index'),
+      // Topics are now scoped per exam. Legacy topics with exam_id IS NULL are
+      // also surfaced so pre-migration data still shows up.
+      supabase
+        .from('topics')
+        .select('*')
+        .in('subject_id', subjectIds.length ? subjectIds : ['x'])
+        .or(`exam_id.eq.${id},exam_id.is.null`)
+        .order('order_index'),
       supabase.from('study_logs').select('*').order('studied_at', { ascending: false }),
     ])
 
@@ -359,6 +366,7 @@ export default function ExamDetailPage() {
               <SubjectCard
                 key={subject.examSubjectId}
                 subject={subject}
+                examId={id}
                 index={index}
                 total={subjects.length}
                 isDragging={dragIndex === index}
@@ -426,13 +434,14 @@ export default function ExamDetailPage() {
 }
 
 function SubjectCard({
-  subject, index, total, isDragging, isDragOver,
+  subject, examId, index, total, isDragging, isDragOver,
   onDragStart, onDragEnter, onDragEnd, onDrop, onMoveUp, onMoveDown,
   expanded, onToggle, onRefresh, onOpenLog,
   onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic, onToggleTopicComplete,
   onReorderTopics, onMoveTopicInSubject,
 }: {
   subject: SubjectWithProgress
+  examId: string
   index: number
   total: number
   isDragging: boolean
@@ -480,6 +489,7 @@ function SubjectCard({
     if (!newTopicName.trim()) return
     await supabase.from('topics').insert({
       subject_id: subject.id,
+      exam_id: examId,
       name: newTopicName.trim(),
       order_index: subject.topics.length,
     })

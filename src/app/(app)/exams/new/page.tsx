@@ -81,6 +81,14 @@ export default function NewExamPage() {
       const formData = new FormData()
       for (const f of files) formData.append('files', f)
 
+      // Send existing subject names so the AI can detect equivalences
+      // (e.g. "Português" ≈ "Língua Portuguesa") and use the same name
+      const { data: existingSubs } = await supabase.from('subjects').select('name')
+      const existingNames = (existingSubs || []).map(s => s.name)
+      if (existingNames.length > 0) {
+        formData.append('existingSubjects', JSON.stringify(existingNames))
+      }
+
       const res = await fetch('/api/extract-edital', { method: 'POST', body: formData })
       const data = await res.json()
 
@@ -127,16 +135,18 @@ export default function NewExamPage() {
         await supabase.from('exams').update({ is_primary: true }).eq('id', exam.id)
       }
 
-      // Create or find subjects and link them
+      // Create or find subjects and link them.
+      // Topics are ALWAYS scoped to the current exam (exam_id = exam.id) so
+      // adding the same subject name to a new exam doesn't reuse another
+      // exam's topics. See bug: BB import copying TJSP's Língua Portuguesa.
       for (const sub of subjects) {
-        // Try to find existing shared subject
         let subjectId: string
 
         const { data: existing } = await supabase
           .from('subjects')
           .select('id')
           .eq('name', sub.name)
-          .single()
+          .maybeSingle()
 
         if (existing) {
           subjectId = existing.id
@@ -148,17 +158,17 @@ export default function NewExamPage() {
             .single()
           if (subErr) throw subErr
           subjectId = newSub.id
+        }
 
-          // Create topics for new subject
-          const topicInserts = sub.topics.map((name, i) => ({
-            subject_id: subjectId,
-            exam_id: null, // shared topic
-            name,
-            order_index: i,
-          }))
-          if (topicInserts.length > 0) {
-            await supabase.from('topics').insert(topicInserts)
-          }
+        // Always create exam-specific topics for THIS exam from the extracted edital
+        const topicInserts = sub.topics.map((name, i) => ({
+          subject_id: subjectId,
+          exam_id: exam.id,
+          name,
+          order_index: i,
+        }))
+        if (topicInserts.length > 0) {
+          await supabase.from('topics').insert(topicInserts)
         }
 
         // Link subject to exam
