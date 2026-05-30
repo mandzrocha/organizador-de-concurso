@@ -157,54 +157,55 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {/* Week — horizontal rows per day */}
-      <div className="space-y-2">
-        {weekDays.map(day => {
+      {/* Week — horizontal rows per day, compactas */}
+      <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        {weekDays.map((day, idx) => {
           const dayStr = day.toISOString().split('T')[0]
           const dayPlansArr = dayPlans(day)
           const today = isToday(day)
           const doneCount = dayPlansArr.filter(p => p.status === 'done').length
+          const isLast = idx === weekDays.length - 1
 
           return (
             <div
               key={dayStr}
-              className="rounded-xl border flex items-stretch transition-shadow"
-              style={{ background: 'var(--surface)', borderColor: today ? 'var(--primary-strong)' : 'var(--border)' }}
+              className="flex items-stretch transition-colors"
+              style={{
+                background: today ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'transparent',
+                borderBottom: isLast ? undefined : '1px solid var(--border)',
+              }}
             >
-              {/* Day header (left side) */}
+              {/* Day header (left side) — compacto */}
               <button
                 onClick={() => setShowDayDetail(dayStr)}
-                className="flex flex-col items-center justify-center w-24 flex-shrink-0 py-3 border-r transition-colors hover:bg-[var(--surface-hover)]"
-                style={{ borderColor: 'var(--border)' }}
+                className="flex items-center gap-2.5 w-32 flex-shrink-0 px-3 py-2 transition-colors hover:bg-[var(--surface-hover)]"
+                style={{ borderRight: '1px solid var(--border)' }}
               >
-                <p className="text-xs uppercase tracking-wider" style={{ color: today ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {format(day, 'EEE', { locale: ptBR })}
-                </p>
                 <p
-                  className="text-3xl font-bold leading-none mt-1"
+                  className="text-2xl font-bold leading-none tabular-nums"
                   style={{ color: today ? 'var(--primary)' : 'var(--text)' }}
                 >
                   {format(day, 'd')}
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
-                  {format(day, 'MMM', { locale: ptBR })}
-                </p>
-                {dayPlansArr.length > 0 && (
-                  <p className="text-xs mt-1 tabular-nums font-medium" style={{ color: doneCount === dayPlansArr.length ? 'var(--success)' : 'var(--text-muted)' }}>
-                    {doneCount}/{dayPlansArr.length}
+                <div className="text-left">
+                  <p className="text-xs uppercase font-medium" style={{ color: today ? 'var(--primary)' : 'var(--text-muted)' }}>
+                    {format(day, 'EEE', { locale: ptBR })}
                   </p>
-                )}
+                  <p className="text-xs tabular-nums" style={{ color: doneCount === dayPlansArr.length && dayPlansArr.length > 0 ? 'var(--success)' : 'var(--text-subtle)' }}>
+                    {dayPlansArr.length > 0 ? `${doneCount}/${dayPlansArr.length}` : '—'}
+                  </p>
+                </div>
               </button>
 
               {/* Plans (horizontal scroll) */}
-              <div className="flex-1 min-w-0 p-3 flex items-center gap-2 overflow-x-auto">
+              <div className="flex-1 min-w-0 px-2 py-2 flex items-center gap-1.5 overflow-x-auto">
                 {dayPlansArr.length === 0 ? (
                   <button
                     onClick={() => setShowAddModal(dayStr)}
-                    className="w-full py-3 rounded-lg text-xs border border-dashed transition-colors hover:border-[var(--primary)]"
-                    style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+                    className="text-xs px-3 py-1 rounded-md transition-colors"
+                    style={{ color: 'var(--text-subtle)' }}
                   >
-                    Nenhum plano. Clique para adicionar.
+                    + adicionar plano
                   </button>
                 ) : (
                   <>
@@ -213,11 +214,11 @@ export default function CalendarPage() {
                     ))}
                     <button
                       onClick={() => setShowAddModal(dayStr)}
-                      className="flex-shrink-0 w-8 h-8 rounded-lg border border-dashed flex items-center justify-center transition-colors"
-                      style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
+                      className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
+                      style={{ color: 'var(--text-subtle)' }}
                       title="Adicionar plano"
                     >
-                      <Plus size={14} />
+                      <Plus size={13} />
                     </button>
                   </>
                 )}
@@ -437,16 +438,16 @@ function PlanChip({ plan, onClick }: { plan: PlanLoaded; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 max-w-xs rounded-lg px-3 py-2 flex items-center gap-2 transition-colors hover:opacity-90"
+      className="flex-shrink-0 max-w-[200px] rounded-md px-2 py-1 flex items-center gap-1.5 transition-colors hover:opacity-90"
       style={{
-        background: isDone ? 'var(--success-soft)' : isSkipped ? 'var(--surface-hover)' : 'var(--surface-hover)',
+        background: isDone ? 'var(--success-soft)' : 'var(--surface-hover)',
         opacity: isSkipped ? 0.5 : 1,
         borderLeft: subject ? `3px solid ${subject.color}` : undefined,
       }}
     >
-      <ActivityIcon type={plan.activity_type} size={13} style={{ color: isDone ? 'var(--success)' : 'var(--text-muted)' }} />
+      <ActivityIcon type={plan.activity_type} size={12} style={{ color: isDone ? 'var(--success)' : 'var(--text-muted)' }} />
       <span
-        className="text-xs font-medium truncate max-w-[180px]"
+        className="text-xs font-medium truncate"
         style={{
           color: isDone ? 'var(--success)' : 'var(--text)',
           textDecorationLine: isDone ? 'line-through' : 'none',
@@ -454,7 +455,7 @@ function PlanChip({ plan, onClick }: { plan: PlanLoaded; onClick: () => void }) 
       >
         {title}
       </span>
-      {isDone && <Check size={11} strokeWidth={3} style={{ color: 'var(--success)' }} />}
+      {isDone && <Check size={10} strokeWidth={3} style={{ color: 'var(--success)' }} />}
     </button>
   )
 }

@@ -112,6 +112,33 @@ export default function ExamDetailPage() {
     const examSubjectRows = esRes.data || []
     const subjectIds = examSubjectRows.map(es => es.subject_id)
 
+    // ---- Auto-fix: reclama topicos legados (exam_id IS NULL) para o concurso
+    // mais antigo de cada materia. Cobre o caso de dados criados antes do fix
+    // de 'matérias mescladas': se TJSP é o original e tem topicos null, eles
+    // ficavam invisíveis depois que o display passou a filtrar por exam_id
+    // estrito. Aqui claimamos antes de buscar os topicos.
+    if (subjectIds.length > 0) {
+      const { data: allLinks } = await supabase
+        .from('exam_subjects')
+        .select('subject_id, exam_id, created_at')
+        .in('subject_id', subjectIds)
+        .order('created_at', { ascending: true })
+      const oldestExamBySubject = new Map<string, string>()
+      for (const row of allLinks || []) {
+        if (!oldestExamBySubject.has(row.subject_id)) {
+          oldestExamBySubject.set(row.subject_id, row.exam_id)
+        }
+      }
+      const subjectsOwnedByMe = subjectIds.filter(sid => oldestExamBySubject.get(sid) === id)
+      if (subjectsOwnedByMe.length > 0) {
+        await supabase
+          .from('topics')
+          .update({ exam_id: id })
+          .in('subject_id', subjectsOwnedByMe)
+          .is('exam_id', null)
+      }
+    }
+
     const [topicsRes, logsRes] = await Promise.all([
       // Topics são SEMPRE escopados por exam_id. Filtro estrito = topicos de
       // outros concursos nunca aparecem aqui mesmo se as materias forem

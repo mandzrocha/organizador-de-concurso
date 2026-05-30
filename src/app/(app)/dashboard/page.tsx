@@ -11,7 +11,7 @@ import { format, parseISO, differenceInDays, startOfDay, subDays, isSameDay, eac
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, Star, FolderOpen, ClipboardList, RotateCw, Check, ArrowRight, Flame, Clock,
-  AlertCircle, CalendarClock, X, Timer, Play, Pause, RotateCcw, Newspaper, ExternalLink,
+  AlertCircle, CalendarClock, X, Timer, Play, Pause, RotateCcw, Newspaper, ExternalLink, Minimize2, Maximize2,
 } from 'lucide-react'
 import { ActivityIcon, ACTIVITY_ICON_MAP } from '@/lib/activity-icons'
 
@@ -136,7 +136,9 @@ export default function DashboardPage() {
   }
 
   const [showQuickLog, setShowQuickLog] = useState(false)
-  const [showPomodoro, setShowPomodoro] = useState(false)
+  const [pomodoroOpen, setPomodoroOpen] = useState(false)
+  const [pomodoroMinimized, setPomodoroMinimized] = useState(false)
+  const pomo = usePomodoro()
   const [relatedNews, setRelatedNews] = useState<{ title: string; link: string; source: string; pubDate: string }[]>([])
 
   // Fetch news once and filter by exam organizations
@@ -268,12 +270,12 @@ export default function DashboardPage() {
             <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>hoje</span>
           </div>
           <button
-            onClick={() => setShowPomodoro(s => !s)}
+            onClick={() => { setPomodoroOpen(true); setPomodoroMinimized(false) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors"
             style={{
-              background: showPomodoro ? 'var(--primary-soft)' : 'var(--surface)',
-              borderColor: showPomodoro ? 'var(--primary)' : 'var(--border)',
-              color: showPomodoro ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+              background: pomodoroOpen ? 'var(--primary-soft)' : 'var(--surface)',
+              borderColor: pomodoroOpen ? 'var(--primary)' : 'var(--border)',
+              color: pomodoroOpen ? 'var(--primary-soft-text)' : 'var(--text-muted)',
             }}
             title="Pomodoro timer"
           >
@@ -289,8 +291,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Pomodoro widget */}
-      {showPomodoro && <PomodoroWidget onClose={() => setShowPomodoro(false)} />}
+      {/* Pomodoro fullscreen */}
+      {pomodoroOpen && !pomodoroMinimized && (
+        <PomodoroFullscreen
+          pomo={pomo}
+          onMinimize={() => setPomodoroMinimized(true)}
+          onClose={() => { setPomodoroOpen(false); pomo.setRunning(false) }}
+        />
+      )}
+      {/* Pomodoro minimized chip */}
+      {pomodoroOpen && pomodoroMinimized && (
+        <PomodoroMinimized
+          pomo={pomo}
+          onExpand={() => setPomodoroMinimized(false)}
+          onClose={() => { setPomodoroOpen(false); pomo.setRunning(false) }}
+        />
+      )}
 
       {/* Countdown da prova foco */}
       {primaryExam && daysToExam !== null && daysToExam >= 0 && (
@@ -649,40 +665,39 @@ function EmptyState() {
   )
 }
 
-// ============== Pomodoro Widget ==============
-function PomodoroWidget({ onClose }: { onClose: () => void }) {
-  type Mode = 'focus' | 'break'
-  const [mode, setMode] = useState<Mode>('focus')
-  const [remaining, setRemaining] = useState(25 * 60)
+// ============== Pomodoro ==============
+type PomodoroMode = 'focus' | 'break'
+const FOCUS_MIN = 25
+const BREAK_MIN = 5
+
+function usePomodoro() {
+  const [mode, setMode] = useState<PomodoroMode>('focus')
+  const [remaining, setRemaining] = useState(FOCUS_MIN * 60)
   const [running, setRunning] = useState(false)
   const [completed, setCompleted] = useState(0)
-  const focusMin = 25
-  const breakMin = 5
 
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => {
       setRemaining(r => {
         if (r <= 1) {
-          // Switch mode
           if (mode === 'focus') {
             setCompleted(c => c + 1)
             setMode('break')
-            // Notify
             try {
               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification('🍅 Pomodoro: hora da pausa!', { body: '5 minutos de descanso.' })
+                new Notification('Pomodoro: hora da pausa!', { body: '5 minutos de descanso.' })
               }
             } catch {}
-            return breakMin * 60
+            return BREAK_MIN * 60
           } else {
             setMode('focus')
             try {
               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification('🍅 Pomodoro: hora de focar!', { body: '25 minutos de estudo.' })
+                new Notification('Pomodoro: hora de focar!', { body: '25 minutos de estudo.' })
               }
             } catch {}
-            return focusMin * 60
+            return FOCUS_MIN * 60
           }
         }
         return r - 1
@@ -692,7 +707,6 @@ function PomodoroWidget({ onClose }: { onClose: () => void }) {
   }, [running, mode])
 
   useEffect(() => {
-    // Ask permission once
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
     }
@@ -700,105 +714,205 @@ function PomodoroWidget({ onClose }: { onClose: () => void }) {
 
   function reset() {
     setRunning(false)
-    setRemaining(mode === 'focus' ? focusMin * 60 : breakMin * 60)
+    setRemaining(mode === 'focus' ? FOCUS_MIN * 60 : BREAK_MIN * 60)
   }
-
-  function switchMode(m: Mode) {
+  function switchMode(m: PomodoroMode) {
     setMode(m)
     setRunning(false)
-    setRemaining(m === 'focus' ? focusMin * 60 : breakMin * 60)
+    setRemaining(m === 'focus' ? FOCUS_MIN * 60 : BREAK_MIN * 60)
   }
+  return { mode, remaining, running, completed, setRunning, reset, switchMode }
+}
 
-  const min = Math.floor(remaining / 60)
-  const sec = remaining % 60
+function fmtTime(secs: number) {
+  const m = Math.floor(secs / 60), s = secs % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// FULLSCREEN modal — immersive focus view
+function PomodoroFullscreen({
+  pomo, onMinimize, onClose,
+}: {
+  pomo: ReturnType<typeof usePomodoro>
+  onMinimize: () => void
+  onClose: () => void
+}) {
+  const { mode, remaining, running, completed, setRunning, reset, switchMode } = pomo
   const isfocus = mode === 'focus'
-  const totalSec = (isfocus ? focusMin : breakMin) * 60
-  const progress = ((totalSec - remaining) / totalSec) * 100
+  const total = (isfocus ? FOCUS_MIN : BREAK_MIN) * 60
+  const progress = ((total - remaining) / total) * 100
+  const accent = isfocus ? 'var(--primary)' : 'var(--success)'
 
   return (
     <div
-      className="rounded-2xl border p-4 flex items-center gap-4"
+      className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
-        background: 'var(--surface)',
-        borderColor: isfocus ? 'var(--primary)' : 'var(--success)',
-        boxShadow: 'var(--shadow-sm)',
+        background: isfocus
+          ? 'radial-gradient(circle at center, color-mix(in srgb, var(--primary) 12%, var(--bg)) 0%, var(--bg) 70%)'
+          : 'radial-gradient(circle at center, color-mix(in srgb, var(--success) 12%, var(--bg)) 0%, var(--bg) 70%)',
       }}
     >
-      <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 relative" style={{ background: 'var(--surface-hover)' }}>
-        <svg className="absolute inset-0" viewBox="0 0 36 36">
-          <circle cx="18" cy="18" r="16" fill="none" stroke="var(--border)" strokeWidth="2" />
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-5">
+        <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+          {completed > 0 && (
+            <span>{completed} {completed === 1 ? 'ciclo concluído' : 'ciclos concluídos'} hoje</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onMinimize}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
+            style={{ color: 'var(--text-muted)' }}
+            title="Minimizar (timer continua)"
+          >
+            <Minimize2 size={16} />
+          </button>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
+            style={{ color: 'var(--text-muted)' }}
+            title="Fechar"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center gap-8">
+        {/* Mode label */}
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
+          <Timer size={16} style={{ color: accent }} />
+          <span className="text-sm font-semibold" style={{ color: accent }}>
+            {isfocus ? 'Hora de focar' : 'Hora da pausa'}
+          </span>
+        </div>
+
+        {/* Big circular timer */}
+        <div className="relative" style={{ width: 380, height: 380, maxWidth: '70vmin', maxHeight: '70vmin' }}>
+          <svg viewBox="0 0 200 200" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="100" cy="100" r="92" fill="none" stroke="var(--border)" strokeWidth="6" />
+            <circle
+              cx="100" cy="100" r="92" fill="none"
+              stroke={accent}
+              strokeWidth="6"
+              strokeDasharray={`${(progress / 100) * 578} 578`}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dasharray 0.6s ease' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="text-7xl font-bold tabular-nums leading-none" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>
+              {fmtTime(remaining)}
+            </p>
+            <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+              {isfocus ? `${FOCUS_MIN} minutos` : `${BREAK_MIN} minutos`}
+            </p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={reset}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'var(--surface)', color: 'var(--text-muted)', boxShadow: 'var(--shadow-sm)' }}
+            title="Reiniciar"
+          >
+            <RotateCcw size={18} />
+          </button>
+          <button
+            onClick={() => setRunning(r => !r)}
+            className="w-20 h-20 rounded-full flex items-center justify-center transition-transform hover:scale-105"
+            style={{ background: accent, color: '#fff', boxShadow: 'var(--shadow-lg)' }}
+            title={running ? 'Pausar' : 'Iniciar'}
+          >
+            {running ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" style={{ marginLeft: 4 }} />}
+          </button>
+          <button
+            onClick={() => switchMode(isfocus ? 'break' : 'focus')}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-colors text-xs font-semibold"
+            style={{ background: 'var(--surface)', color: 'var(--text-muted)', boxShadow: 'var(--shadow-sm)' }}
+            title={isfocus ? 'Pular para pausa' : 'Pular para foco'}
+          >
+            {isfocus ? `${BREAK_MIN}m` : `${FOCUS_MIN}m`}
+          </button>
+        </div>
+
+        <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>
+          {running ? 'Mantenha o foco. Você consegue.' : 'Pressione play para começar'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// MINIMIZED — small floating chip (bottom-left so não conflita com FAB)
+function PomodoroMinimized({
+  pomo, onExpand, onClose,
+}: {
+  pomo: ReturnType<typeof usePomodoro>
+  onExpand: () => void
+  onClose: () => void
+}) {
+  const { mode, remaining, running, setRunning } = pomo
+  const isfocus = mode === 'focus'
+  const total = (isfocus ? FOCUS_MIN : BREAK_MIN) * 60
+  const progress = ((total - remaining) / total) * 100
+  const accent = isfocus ? 'var(--primary)' : 'var(--success)'
+
+  return (
+    <div
+      className="fixed bottom-6 left-6 z-40 rounded-2xl border flex items-center gap-3 px-3 py-2 transition-shadow hover:shadow-lg"
+      style={{
+        background: 'var(--surface)',
+        borderColor: accent,
+        boxShadow: 'var(--shadow-md)',
+      }}
+    >
+      <div className="relative w-10 h-10 flex-shrink-0">
+        <svg viewBox="0 0 36 36" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="18" cy="18" r="16" fill="none" stroke="var(--border)" strokeWidth="3" />
           <circle
             cx="18" cy="18" r="16" fill="none"
-            stroke={isfocus ? 'var(--primary)' : 'var(--success)'}
-            strokeWidth="2"
-            strokeDasharray={`${progress} 100`}
-            strokeDashoffset="0"
-            transform="rotate(-90 18 18)"
+            stroke={accent} strokeWidth="3"
+            strokeDasharray={`${(progress / 100) * 100} 100`}
             pathLength="100"
             strokeLinecap="round"
           />
         </svg>
-        <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text)' }}>
-          {String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}
-        </span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold" style={{ color: isfocus ? 'var(--primary)' : 'var(--success)' }}>
-            {isfocus ? '🍅 Foco' : '☕ Pausa'}
-          </p>
-          {completed > 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-              {completed} {completed === 1 ? 'ciclo' : 'ciclos'} concluído{completed === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 mt-1">
-          <button
-            onClick={() => switchMode('focus')}
-            className="text-xs px-2 py-0.5 rounded"
-            style={{ background: isfocus ? 'var(--primary-soft)' : 'transparent', color: isfocus ? 'var(--primary-soft-text)' : 'var(--text-subtle)' }}
-          >
-            {focusMin}min foco
-          </button>
-          <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>·</span>
-          <button
-            onClick={() => switchMode('break')}
-            className="text-xs px-2 py-0.5 rounded"
-            style={{ background: !isfocus ? 'var(--success-soft)' : 'transparent', color: !isfocus ? 'var(--success)' : 'var(--text-subtle)' }}
-          >
-            {breakMin}min pausa
-          </button>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[10px] font-bold tabular-nums" style={{ color: 'var(--text)' }}>{fmtTime(remaining)}</span>
         </div>
       </div>
-
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          onClick={() => setRunning(r => !r)}
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105"
-          style={{ background: isfocus ? 'var(--primary-strong)' : 'var(--success)', color: '#fff' }}
-          title={running ? 'Pausar' : 'Iniciar'}
-        >
-          {running ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-        </button>
-        <button
-          onClick={reset}
-          className="w-9 h-9 rounded-lg flex items-center justify-center border"
-          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-          title="Reiniciar"
-        >
-          <RotateCcw size={14} />
-        </button>
-        <button
-          onClick={onClose}
-          className="w-9 h-9 rounded-lg flex items-center justify-center"
-          style={{ color: 'var(--text-subtle)' }}
-          title="Fechar"
-        >
-          <X size={16} />
-        </button>
+      <div>
+        <p className="text-xs font-semibold" style={{ color: accent }}>{isfocus ? 'Foco' : 'Pausa'}</p>
+        <p className="text-[10px]" style={{ color: 'var(--text-subtle)' }}>{running ? 'em andamento' : 'pausado'}</p>
       </div>
+      <button
+        onClick={() => setRunning(r => !r)}
+        className="w-7 h-7 rounded-full flex items-center justify-center"
+        style={{ background: accent, color: '#fff' }}
+        title={running ? 'Pausar' : 'Iniciar'}
+      >
+        {running ? <Pause size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" />}
+      </button>
+      <button
+        onClick={onExpand}
+        className="w-7 h-7 rounded-md flex items-center justify-center"
+        style={{ color: 'var(--text-muted)' }}
+        title="Expandir"
+      >
+        <Maximize2 size={12} />
+      </button>
+      <button
+        onClick={onClose}
+        className="w-7 h-7 rounded-md flex items-center justify-center"
+        style={{ color: 'var(--text-subtle)' }}
+        title="Fechar"
+      >
+        <X size={12} />
+      </button>
     </div>
   )
 }
