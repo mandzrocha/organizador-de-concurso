@@ -11,7 +11,7 @@ import { format, parseISO, differenceInDays, startOfDay, subDays, isSameDay, eac
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, Star, FolderOpen, ClipboardList, RotateCw, Check, ArrowRight, Flame, Clock,
-  AlertCircle, CalendarClock, X,
+  AlertCircle, CalendarClock, X, Timer, Play, Pause, RotateCcw, Newspaper, ExternalLink,
 } from 'lucide-react'
 import { ActivityIcon, ACTIVITY_ICON_MAP } from '@/lib/activity-icons'
 
@@ -136,6 +136,26 @@ export default function DashboardPage() {
   }
 
   const [showQuickLog, setShowQuickLog] = useState(false)
+  const [showPomodoro, setShowPomodoro] = useState(false)
+  const [relatedNews, setRelatedNews] = useState<{ title: string; link: string; source: string; pubDate: string }[]>([])
+
+  // Fetch news once and filter by exam organizations
+  useEffect(() => {
+    if (!data || data.exams.length === 0) return
+    const orgs = data.exams
+      .filter(e => !e.is_watching && e.organization)
+      .map(e => (e.organization as string).toLowerCase())
+      .concat(data.exams.filter(e => !e.is_watching).map(e => e.name.toLowerCase()))
+    if (orgs.length === 0) return
+    fetch('/api/news').then(r => r.json()).then(d => {
+      if (!d.items) return
+      const matches = (d.items as any[]).filter(item => {
+        const hay = (item.title + ' ' + item.description).toLowerCase()
+        return orgs.some(o => o && o.length >= 3 && hay.includes(o))
+      })
+      setRelatedNews(matches.slice(0, 3))
+    }).catch(() => {})
+  }, [data?.exams.length])
 
   // Streak (consecutive days with any study log, allowing today to be empty)
   const streak = useMemo(() => {
@@ -175,6 +195,15 @@ export default function DashboardPage() {
       else map.set(s.id, { subject: s, minutes: dur })
     }
     return [...map.values()].sort((a, b) => b.minutes - a.minutes)
+  }, [data])
+
+  // Próximas provas — todos os concursos com data >= hoje, ordenados
+  const upcomingExams = useMemo(() => {
+    if (!data) return []
+    const today = new Date()
+    return data.exams
+      .filter(e => e.exam_date && !e.is_watching && differenceInDays(parseISO(e.exam_date), today) >= 0)
+      .sort((a, b) => parseISO(a.exam_date!).getTime() - parseISO(b.exam_date!).getTime())
   }, [data])
 
   // Heatmap das últimas 12 semanas
@@ -238,6 +267,18 @@ export default function DashboardPage() {
             </span>
             <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>hoje</span>
           </div>
+          <button
+            onClick={() => setShowPomodoro(s => !s)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors"
+            style={{
+              background: showPomodoro ? 'var(--primary-soft)' : 'var(--surface)',
+              borderColor: showPomodoro ? 'var(--primary)' : 'var(--border)',
+              color: showPomodoro ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+            }}
+            title="Pomodoro timer"
+          >
+            <Timer size={14} /> Pomodoro
+          </button>
           <Link
             href="/exams/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
@@ -247,6 +288,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Pomodoro widget */}
+      {showPomodoro && <PomodoroWidget onClose={() => setShowPomodoro(false)} />}
 
       {/* Countdown da prova foco */}
       {primaryExam && daysToExam !== null && daysToExam >= 0 && (
@@ -267,6 +311,47 @@ export default function DashboardPage() {
             <p className="text-xs opacity-80 mt-0.5">
               {format(parseISO(primaryExam.exam_date!), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Próximas provas (todos os concursos com data, ordenados) */}
+      {upcomingExams.length > 1 && (
+        <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarClock size={14} style={{ color: 'var(--text-muted)' }} />
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Próximas provas</h3>
+          </div>
+          <div className="space-y-1">
+            {upcomingExams.map(exam => {
+              const days = differenceInDays(parseISO(exam.exam_date!), today)
+              return (
+                <Link
+                  key={exam.id}
+                  href={`/exams/${exam.id}`}
+                  className="flex items-center justify-between gap-3 px-2 py-2 -mx-2 rounded-md transition-colors hover:bg-[var(--surface-hover)]"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {exam.is_primary && <Star size={12} fill="currentColor" strokeWidth={0} style={{ color: 'var(--primary)' }} />}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{exam.name}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>
+                        {format(parseISO(exam.exam_date!), "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className="text-xs font-semibold tabular-nums px-2 py-1 rounded-md flex-shrink-0"
+                    style={{
+                      background: days < 30 ? 'var(--danger-soft)' : days < 90 ? 'var(--warning-soft)' : 'var(--primary-soft)',
+                      color: days < 30 ? 'var(--danger)' : days < 90 ? 'var(--warning)' : 'var(--primary-soft-text)',
+                    }}
+                  >
+                    {days}d
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}
@@ -472,9 +557,44 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Heatmap de consistência */}
+      {/* Horas por dia */}
       {data && data.allLogs.length > 0 && (
-        <ConsistencyHeatmap days={heatmap} />
+        <HoursPerDayChart days={heatmap} />
+      )}
+
+      {/* Notícias relacionadas */}
+      {relatedNews.length > 0 && (
+        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Newspaper size={15} style={{ color: 'var(--primary)' }} />
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Notícias dos seus concursos</h3>
+            </div>
+            <Link href="/news" className="text-xs" style={{ color: 'var(--primary-strong)' }}>Ver todas</Link>
+          </div>
+          <div className="space-y-2">
+            {relatedNews.map((n, i) => (
+              <a
+                key={i}
+                href={n.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-lg transition-colors hover:bg-[var(--surface-hover)]"
+                style={{ background: 'var(--surface-hover)' }}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{n.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>
+                      {n.source}
+                    </p>
+                  </div>
+                  <ExternalLink size={13} style={{ color: 'var(--text-subtle)' }} className="flex-shrink-0 mt-0.5" />
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Pie chart de tempo por matéria */}
@@ -529,69 +649,236 @@ function EmptyState() {
   )
 }
 
-// ============== Heatmap ==============
-function ConsistencyHeatmap({ days }: { days: { day: Date; minutes: number }[] }) {
-  // Build columns of 7 days each (weeks). Order: oldest left, newest right.
-  const weeks: { day: Date; minutes: number }[][] = []
-  let buf: { day: Date; minutes: number }[] = []
-  for (const d of days) {
-    buf.push(d)
-    if (d.day.getDay() === 0) { weeks.push(buf); buf = [] }
-  }
-  if (buf.length > 0) weeks.push(buf)
+// ============== Pomodoro Widget ==============
+function PomodoroWidget({ onClose }: { onClose: () => void }) {
+  type Mode = 'focus' | 'break'
+  const [mode, setMode] = useState<Mode>('focus')
+  const [remaining, setRemaining] = useState(25 * 60)
+  const [running, setRunning] = useState(false)
+  const [completed, setCompleted] = useState(0)
+  const focusMin = 25
+  const breakMin = 5
 
-  function color(min: number) {
-    if (min === 0) return 'var(--surface-hover)'
-    if (min <= 30) return 'color-mix(in srgb, var(--primary) 25%, transparent)'
-    if (min <= 60) return 'color-mix(in srgb, var(--primary) 50%, transparent)'
-    if (min <= 120) return 'color-mix(in srgb, var(--primary) 75%, transparent)'
-    return 'var(--primary-strong)'
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) {
+          // Switch mode
+          if (mode === 'focus') {
+            setCompleted(c => c + 1)
+            setMode('break')
+            // Notify
+            try {
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('🍅 Pomodoro: hora da pausa!', { body: '5 minutos de descanso.' })
+              }
+            } catch {}
+            return breakMin * 60
+          } else {
+            setMode('focus')
+            try {
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('🍅 Pomodoro: hora de focar!', { body: '25 minutos de estudo.' })
+              }
+            } catch {}
+            return focusMin * 60
+          }
+        }
+        return r - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [running, mode])
+
+  useEffect(() => {
+    // Ask permission once
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [])
+
+  function reset() {
+    setRunning(false)
+    setRemaining(mode === 'focus' ? focusMin * 60 : breakMin * 60)
   }
-  function fmtMin(min: number) {
-    if (min === 0) return 'sem estudo'
+
+  function switchMode(m: Mode) {
+    setMode(m)
+    setRunning(false)
+    setRemaining(m === 'focus' ? focusMin * 60 : breakMin * 60)
+  }
+
+  const min = Math.floor(remaining / 60)
+  const sec = remaining % 60
+  const isfocus = mode === 'focus'
+  const totalSec = (isfocus ? focusMin : breakMin) * 60
+  const progress = ((totalSec - remaining) / totalSec) * 100
+
+  return (
+    <div
+      className="rounded-2xl border p-4 flex items-center gap-4"
+      style={{
+        background: 'var(--surface)',
+        borderColor: isfocus ? 'var(--primary)' : 'var(--success)',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 relative" style={{ background: 'var(--surface-hover)' }}>
+        <svg className="absolute inset-0" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="16" fill="none" stroke="var(--border)" strokeWidth="2" />
+          <circle
+            cx="18" cy="18" r="16" fill="none"
+            stroke={isfocus ? 'var(--primary)' : 'var(--success)'}
+            strokeWidth="2"
+            strokeDasharray={`${progress} 100`}
+            strokeDashoffset="0"
+            transform="rotate(-90 18 18)"
+            pathLength="100"
+            strokeLinecap="round"
+          />
+        </svg>
+        <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text)' }}>
+          {String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}
+        </span>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold" style={{ color: isfocus ? 'var(--primary)' : 'var(--success)' }}>
+            {isfocus ? '🍅 Foco' : '☕ Pausa'}
+          </p>
+          {completed > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+              {completed} {completed === 1 ? 'ciclo' : 'ciclos'} concluído{completed === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <button
+            onClick={() => switchMode('focus')}
+            className="text-xs px-2 py-0.5 rounded"
+            style={{ background: isfocus ? 'var(--primary-soft)' : 'transparent', color: isfocus ? 'var(--primary-soft-text)' : 'var(--text-subtle)' }}
+          >
+            {focusMin}min foco
+          </button>
+          <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>·</span>
+          <button
+            onClick={() => switchMode('break')}
+            className="text-xs px-2 py-0.5 rounded"
+            style={{ background: !isfocus ? 'var(--success-soft)' : 'transparent', color: !isfocus ? 'var(--success)' : 'var(--text-subtle)' }}
+          >
+            {breakMin}min pausa
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => setRunning(r => !r)}
+          className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105"
+          style={{ background: isfocus ? 'var(--primary-strong)' : 'var(--success)', color: '#fff' }}
+          title={running ? 'Pausar' : 'Iniciar'}
+        >
+          {running ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+        </button>
+        <button
+          onClick={reset}
+          className="w-9 h-9 rounded-lg flex items-center justify-center border"
+          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+          title="Reiniciar"
+        >
+          <RotateCcw size={14} />
+        </button>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-lg flex items-center justify-center"
+          style={{ color: 'var(--text-subtle)' }}
+          title="Fechar"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ============== Hours per day bar chart ==============
+function HoursPerDayChart({ days }: { days: { day: Date; minutes: number }[] }) {
+  // Show last 14 days
+  const recent = days.slice(-14)
+  const maxMinutes = Math.max(60, ...recent.map(d => d.minutes))
+  const total = recent.reduce((s, d) => s + d.minutes, 0)
+  const studied = recent.filter(d => d.minutes > 0).length
+  const avg = studied > 0 ? Math.round(total / studied) : 0
+
+  function fmtH(min: number) {
     const h = Math.floor(min / 60), m = min % 60
+    if (h === 0 && m === 0) return '0'
     if (h === 0) return `${m}min`
-    return m === 0 ? `${h}h` : `${h}h ${m}min`
+    if (m === 0) return `${h}h`
+    return `${h}h${m}`
   }
-  const totalMinutes = days.reduce((s, d) => s + d.minutes, 0)
-  const studiedDays = days.filter(d => d.minutes > 0).length
 
   return (
     <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-      <div className="flex items-baseline justify-between mb-4">
+      <div className="flex items-start justify-between mb-5">
         <div>
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Consistência</h2>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Horas estudadas por dia</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {studiedDays} dias de estudo nas últimas 12 semanas
+            Últimos 14 dias · {studied} {studied === 1 ? 'dia ativo' : 'dias ativos'} · média de {fmtH(avg)} nos dias estudados
           </p>
         </div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-subtle)' }}>
-          <span>menos</span>
-          {[0, 25, 50, 75, 100].map(level => (
-            <div key={level} className="w-3 h-3 rounded-sm" style={{ background: level === 0 ? 'var(--surface-hover)' : level === 100 ? 'var(--primary-strong)' : `color-mix(in srgb, var(--primary) ${level}%, transparent)` }} />
-          ))}
-          <span>mais</span>
-        </div>
       </div>
-      <div className="flex gap-1 overflow-x-auto">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-1">
-            {Array.from({ length: 7 }, (_, di) => {
-              // Match by day of week (Monday=1 .. Sunday=0 -> we want Monday top, Sunday bottom)
-              const targetDay = (di + 1) % 7  // 1=Mon..6=Sat, 0=Sun
-              const cell = week.find(d => d.day.getDay() === targetDay)
-              if (!cell) return <div key={di} className="w-3.5 h-3.5 rounded-sm" style={{ background: 'transparent' }} />
-              return (
-                <div
-                  key={di}
-                  className="w-3.5 h-3.5 rounded-sm"
-                  style={{ background: color(cell.minutes) }}
-                  title={`${format(cell.day, "d 'de' MMM", { locale: ptBR })}: ${fmtMin(cell.minutes)}`}
-                />
-              )
-            })}
-          </div>
-        ))}
+
+      <div className="flex items-end gap-1.5" style={{ height: 140 }}>
+        {recent.map(({ day, minutes }, i) => {
+          const heightPct = maxMinutes > 0 ? (minutes / maxMinutes) * 100 : 0
+          const today = isSameDay(day, new Date())
+          return (
+            <div key={i} className="flex-1 min-w-0 flex flex-col items-center justify-end group relative">
+              {minutes > 0 && (
+                <span
+                  className="absolute -top-5 text-[10px] font-semibold tabular-nums opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                  style={{ color: 'var(--text)' }}
+                >
+                  {fmtH(minutes)}
+                </span>
+              )}
+              <div
+                className="w-full rounded-t-md transition-all"
+                style={{
+                  height: minutes > 0 ? `${Math.max(heightPct, 6)}%` : '3px',
+                  background: minutes > 0
+                    ? (today ? 'linear-gradient(180deg, var(--primary), var(--primary-strong))' : 'var(--primary)')
+                    : 'var(--border)',
+                  opacity: minutes === 0 ? 0.5 : 1,
+                }}
+                title={`${format(day, "EEEE, d 'de' MMM", { locale: ptBR })}: ${fmtH(minutes)}`}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* x-axis labels */}
+      <div className="flex items-center gap-1.5 mt-2">
+        {recent.map(({ day }, i) => {
+          const today = isSameDay(day, new Date())
+          return (
+            <div key={i} className="flex-1 min-w-0 text-center">
+              <p
+                className="text-[10px] uppercase font-medium"
+                style={{ color: today ? 'var(--primary)' : 'var(--text-subtle)' }}
+              >
+                {format(day, 'EEEEEE', { locale: ptBR })}
+              </p>
+              <p className="text-[10px] tabular-nums" style={{ color: today ? 'var(--primary)' : 'var(--text-subtle)' }}>
+                {format(day, 'd')}
+              </p>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
