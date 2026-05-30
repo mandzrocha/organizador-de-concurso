@@ -4,7 +4,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'ConcurFlow — Estudos para Concursos',
   description: 'Plataforma centralizada de estudos para concursos públicos',
-  icons: { icon: '/logo-symbol.svg' },
+  icons: { icon: '/logo.svg' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

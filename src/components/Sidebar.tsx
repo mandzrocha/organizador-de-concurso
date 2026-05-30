@@ -20,11 +20,9 @@ export function Sidebar() {
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col border-r" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
       <div className="px-4 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <Link href="/dashboard" className="flex items-center gap-4">
+        <Link href="/dashboard" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-symbol.svg" alt="" className="w-10 h-10" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-wordmark.svg" alt="ConcurFlow" className="h-7 w-auto" />
+          <img src="/logo.svg" alt="ConcurFlow" className="h-10 w-auto" />
         </Link>
       </div>
 
