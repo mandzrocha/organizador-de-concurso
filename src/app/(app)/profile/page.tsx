@@ -196,7 +196,7 @@ export default function ProfilePage() {
             const heightPct = (minutes / maxDay) * 100
             const isTodayDay = isSameDay(day, new Date())
             return (
-              <div key={i} className="flex-1 min-w-0 flex flex-col items-center justify-end group">
+              <div key={i} className="flex-1 min-w-0 h-full flex flex-col items-center justify-end group">
                 <div
                   className="w-full rounded-t-md transition-all relative"
                   style={{
