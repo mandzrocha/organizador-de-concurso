@@ -10,7 +10,10 @@ export interface SchedulePreferences {
   horizonDays: number            // por quantos dias gerar
   focus: 'primary' | 'all' | 'specific'
   specificExamIds?: string[]
-  includeCompletedSubjects: boolean  // se true: apenas revisão; se false: pula totalmente
+  includeCompletedSubjects: boolean  // legado: true=apenas revisão, false=pular
+  // O que fazer com matérias/tópicos já concluídos:
+  // 'skip' = não incluir | 'review' = só revisão | 'restudy' = estudar do zero de novo
+  completedSubjectsMode?: 'skip' | 'review' | 'restudy'
   prioritizeOverdueReviews: boolean
   startDate?: string             // YYYY-MM-DD; padrão = hoje
   // Padrões por atividade — quais dias da semana cada atividade pode acontecer
@@ -39,6 +42,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const prefs: SchedulePreferences = { ...DEFAULT_PREFS, ...body }
+    // Resolve completed-subjects behavior (new field wins; fall back to legacy boolean).
+    const completedMode: 'skip' | 'review' | 'restudy' =
+      prefs.completedSubjectsMode ?? (prefs.includeCompletedSubjects ? 'review' : 'skip')
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -97,8 +103,13 @@ export async function POST(req: NextRequest) {
       const remaining = allActivities.filter(a => !done.has(a))
 
       if (subjectIsComplete || topicIsComplete) {
-        if (!prefs.includeCompletedSubjects) continue
-        reviewOnlyTopics.push({ id: t.id, name: t.name, subject: t.subject?.name })
+        if (completedMode === 'skip') continue
+        if (completedMode === 'restudy') {
+          // Estudar de novo do zero (ex.: edital reaberto) — todas as atividades.
+          studyTopics.push({ id: t.id, name: t.name, subject: t.subject?.name, remaining: allActivities })
+        } else {
+          reviewOnlyTopics.push({ id: t.id, name: t.name, subject: t.subject?.name })
+        }
       } else if (remaining.length > 0) {
         studyTopics.push({ id: t.id, name: t.name, subject: t.subject?.name, remaining })
       }
@@ -152,7 +163,7 @@ PREFERÊNCIAS DO USUÁRIO:
 - Total máximo de atividades: ${maxTotal}
 - Foco: ${prefs.focus === 'primary' ? 'concurso principal' : prefs.focus === 'all' ? 'todos os concursos' : 'concursos selecionados'}
 - Priorizar revisões em atraso: ${prefs.prioritizeOverdueReviews ? 'SIM' : 'não'}
-- Matérias concluídas: ${prefs.includeCompletedSubjects ? 'incluir apenas como REVISÃO' : 'pular'}
+- Matérias concluídas: ${completedMode === 'skip' ? 'pular' : completedMode === 'restudy' ? 'ESTUDAR DE NOVO do zero (todas as atividades)' : 'incluir apenas como REVISÃO'}
 ${activityDayLines.length > 0 ? `- Restrições POR ATIVIDADE (cada atividade só pode ser planejada nos dias listados):\n${activityDayLines.join('\n')}` : ''}
 ${prefs.notes ? `\nObservações adicionais do usuário:\n"${prefs.notes}"` : ''}
 

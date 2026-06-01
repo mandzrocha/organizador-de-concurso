@@ -434,29 +434,42 @@ function PlanChip({ plan, onClick }: { plan: PlanLoaded; onClick: () => void }) 
   const isDone = plan.status === 'done'
   const isSkipped = plan.status === 'skipped'
   const subject = plan.topic?.subject || plan.subject
-  const title = plan.topic?.name || subject?.name || '?'
+  const isSubjectLevel = !plan.topic_id && plan.subject_id
+  // Topic plans show the topic as the main label with the subject as a tag on top.
+  // Subject-level plans show the subject name with a "matéria completa" hint.
+  const mainLabel = plan.topic?.name || subject?.name || '?'
 
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 max-w-[200px] rounded-md px-2 py-1 flex items-center gap-1.5 transition-colors hover:opacity-90"
+      className="flex-shrink-0 max-w-[220px] rounded-md px-2 py-1.5 flex flex-col items-start gap-1 text-left transition-colors hover:opacity-90"
       style={{
         background: isDone ? 'var(--success-soft)' : 'var(--surface-hover)',
         opacity: isSkipped ? 0.5 : 1,
         borderLeft: subject ? `3px solid ${subject.color}` : undefined,
       }}
     >
-      <ActivityIcon type={plan.activity_type} size={12} style={{ color: isDone ? 'var(--success)' : 'var(--text-muted)' }} />
-      <span
-        className="text-xs font-medium truncate"
-        style={{
-          color: isDone ? 'var(--success)' : 'var(--text)',
-          textDecorationLine: isDone ? 'line-through' : 'none',
-        }}
-      >
-        {title}
+      {subject && (
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded leading-none truncate max-w-full"
+          style={{ background: `color-mix(in srgb, ${subject.color} 18%, transparent)`, color: subject.color }}
+        >
+          {isSubjectLevel ? `${subject.name} · completa` : subject.name}
+        </span>
+      )}
+      <span className="flex items-center gap-1.5 max-w-full">
+        <ActivityIcon type={plan.activity_type} size={12} className="flex-shrink-0" style={{ color: isDone ? 'var(--success)' : 'var(--text-muted)' }} />
+        <span
+          className="text-xs font-medium truncate"
+          style={{
+            color: isDone ? 'var(--success)' : 'var(--text)',
+            textDecorationLine: isDone ? 'line-through' : 'none',
+          }}
+        >
+          {mainLabel}
+        </span>
+        {isDone && <Check size={10} strokeWidth={3} className="flex-shrink-0" style={{ color: 'var(--success)' }} />}
       </span>
-      {isDone && <Check size={10} strokeWidth={3} style={{ color: 'var(--success)' }} />}
     </button>
   )
 }
@@ -708,7 +721,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
   const [horizonDays, setHorizonDays] = useState(14)
   const [focus, setFocus] = useState<'primary' | 'all' | 'specific'>('primary')
   const [specificExamIds, setSpecificExamIds] = useState<string[]>([])
-  const [includeCompleted, setIncludeCompleted] = useState(true)
+  const [completedMode, setCompletedMode] = useState<'skip' | 'review' | 'restudy'>('review')
   const [prioritizeOverdue, setPrioritizeOverdue] = useState(true)
   const [customizeActivities, setCustomizeActivities] = useState(false)
   const [activityDays, setActivityDays] = useState<Record<ActivityKey, number[]>>({
@@ -738,7 +751,7 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
     onGenerate({
       daysPerWeek, hoursPerDay, horizonDays, focus,
       specificExamIds: focus === 'specific' ? specificExamIds : undefined,
-      includeCompletedSubjects: includeCompleted,
+      completedSubjectsMode: completedMode,
       prioritizeOverdueReviews: prioritizeOverdue,
       activityDays: customizeActivities ? activityDays : undefined,
       notes: notes.trim() || undefined,
@@ -981,25 +994,37 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
                 </div>
               </label>
 
-              <label className="flex items-start gap-3 p-3 rounded-lg cursor-pointer" style={{ background: 'var(--surface-hover)' }}>
-                <input
-                  type="checkbox"
-                  checked={includeCompleted}
-                  onChange={e => setIncludeCompleted(e.target.checked)}
-                  className="w-4 h-4 mt-0.5"
-                  style={{ accentColor: 'var(--primary)' }}
-                />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Incluir matérias concluídas (apenas revisão)</p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Adiciona revisões espaçadas para manter o conhecimento ativo</p>
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Matérias que você já concluiu</p>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>O que fazer com tópicos/matérias marcados como concluídos?</p>
+                <div className="space-y-2">
+                  {[
+                    { value: 'review' as const, label: 'Apenas revisar', desc: 'Revisões espaçadas para manter o conteúdo fresco (recomendado)' },
+                    { value: 'restudy' as const, label: 'Estudar de novo do zero', desc: 'Reinclui todas as atividades — útil quando o edital reabriu ou você quer reforçar' },
+                    { value: 'skip' as const, label: 'Não incluir', desc: 'Ignora matérias concluídas neste cronograma' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setCompletedMode(opt.value)}
+                      className="w-full text-left px-4 py-2.5 rounded-lg border transition-all"
+                      style={{
+                        background: completedMode === opt.value ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                        borderColor: completedMode === opt.value ? 'var(--primary)' : 'var(--border)',
+                      }}
+                    >
+                      <p className="text-sm font-medium" style={{ color: completedMode === opt.value ? 'var(--primary-soft-text)' : 'var(--text)' }}>{opt.label}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>{opt.desc}</p>
+                    </button>
+                  ))}
                 </div>
-              </label>
+              </div>
 
               <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
                 <p className="font-medium mb-1">Resumo</p>
                 <p>· {daysPerWeek.length} dias/semana, {hoursPerDay}h por dia</p>
                 <p>· Cronograma de {horizonDays} dias</p>
                 <p>· Foco: {focus === 'primary' ? 'concurso principal' : focus === 'all' ? 'todos os concursos' : `${specificExamIds.length} concurso(s) selecionado(s)`}</p>
+                <p>· Concluídas: {completedMode === 'review' ? 'apenas revisar' : completedMode === 'restudy' ? 'estudar de novo' : 'não incluir'}</p>
                 {customizeActivities && <p>· Padrões por atividade definidos</p>}
                 {notes.trim() && <p>· Observações enviadas para a IA</p>}
               </div>
