@@ -259,16 +259,18 @@ export default function CalendarPage() {
           topics={topics}
           subjects={subjects}
           onClose={() => setShowAddModal(null)}
-          onSave={async (target, activityType, notes) => {
+          onSave={async (target, activityTypes, notes) => {
             const existing = plans.filter(p => p.planned_date === showAddModal)
-            await supabase.from('calendar_plans').insert({
+            // One row per selected activity → each becomes its own task in the day.
+            const rows = activityTypes.map((activityType, i) => ({
               planned_date: showAddModal,
               topic_id: target.kind === 'topic' ? target.id : null,
               subject_id: target.kind === 'subject' ? target.id : null,
               activity_type: activityType,
               notes,
-              order_index: existing.length,
-            })
+              order_index: existing.length + i,
+            }))
+            await supabase.from('calendar_plans').insert(rows)
             setShowAddModal(null)
             loadPlans()
           }}
@@ -509,11 +511,11 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
   topics: (Topic & { subject: Subject })[]
   subjects: Subject[]
   onClose: () => void
-  onSave: (target: TargetSelection, activityType: ActivityType, notes: string) => Promise<void>
+  onSave: (target: TargetSelection, activityTypes: ActivityType[], notes: string) => Promise<void>
 }) {
   const [mode, setMode] = useState<'topic' | 'subject'>('topic')
   const [target, setTarget] = useState<TargetSelection | null>(null)
-  const [activity, setActivity] = useState<ActivityType>('video')
+  const [activities, setActivities] = useState<ActivityType[]>(['video'])
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
@@ -526,10 +528,14 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
     s.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  function toggleActivity(act: ActivityType) {
+    setActivities(prev => prev.includes(act) ? prev.filter(a => a !== act) : [...prev, act])
+  }
+
   async function handleSave() {
-    if (!target) return
+    if (!target || activities.length === 0) return
     setSaving(true)
-    await onSave(target, activity, notes)
+    await onSave(target, activities, notes)
     setSaving(false)
   }
 
@@ -628,22 +634,27 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
         </div>
 
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Atividade</label>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            Atividades <span style={{ color: 'var(--text-subtle)' }}>· escolha uma ou mais (cada uma vira uma tarefa)</span>
+          </label>
           <div className="flex gap-2 flex-wrap">
-            {(['video', 'exercises', 'reading', 'review'] as ActivityType[]).map(act => (
-              <button
-                key={act}
-                onClick={() => setActivity(act)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all"
-                style={{
-                  background: activity === act ? 'var(--primary-soft)' : 'transparent',
-                  borderColor: activity === act ? 'var(--primary-strong)' : 'var(--border)',
-                  color: activity === act ? 'var(--primary-soft-text)' : 'var(--text-muted)',
-                }}
-              >
-                <ActivityIcon type={act} size={12} /> {ACTIVITY_LABELS[act]}
-              </button>
-            ))}
+            {(['video', 'exercises', 'reading', 'review'] as ActivityType[]).map(act => {
+              const selected = activities.includes(act)
+              return (
+                <button
+                  key={act}
+                  onClick={() => toggleActivity(act)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all"
+                  style={{
+                    background: selected ? 'var(--primary-soft)' : 'transparent',
+                    borderColor: selected ? 'var(--primary-strong)' : 'var(--border)',
+                    color: selected ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                  }}
+                >
+                  {selected ? <Check size={12} strokeWidth={3} /> : <ActivityIcon type={act} size={12} />} {ACTIVITY_LABELS[act]}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -656,11 +667,15 @@ function AddPlanModal({ date, topics, subjects, onClose, onSave }: {
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
           <button
             onClick={handleSave}
-            disabled={!target || saving}
+            disabled={!target || activities.length === 0 || saving}
             className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
             style={{ background: 'var(--primary-strong)', color: '#fff' }}
           >
-            {saving ? 'Salvando...' : 'Adicionar ao calendário'}
+            {saving
+              ? 'Salvando...'
+              : activities.length > 1
+                ? `Adicionar ${activities.length} tarefas`
+                : 'Adicionar ao calendário'}
           </button>
         </div>
       </div>
