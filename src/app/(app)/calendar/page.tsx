@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CalendarPlan, Subject, Topic, ActivityType, ACTIVITY_LABELS, ACTIVITY_ICONS, PlanStatus } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
+import { PageSkeleton } from '@/components/Skeleton'
 import { format, addDays, startOfWeek, parseISO, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -133,6 +134,8 @@ export default function CalendarPage() {
   }
 
   const dayPlans = (date: Date) => plans.filter(p => p.planned_date === date.toISOString().split('T')[0])
+
+  if (loading) return <PageSkeleton variant="default" />
 
   return (
     <div className="p-6 space-y-5">

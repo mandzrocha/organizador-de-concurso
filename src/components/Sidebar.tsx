@@ -14,12 +14,15 @@ const NAV = [
   { href: '/profile',   icon: User,            label: 'Perfil' },
 ]
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean; onClose?: () => void } = {}) {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
 
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col border-r" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
+    <aside
+      className={`w-56 flex-shrink-0 flex flex-col border-r fixed inset-y-0 left-0 z-50 transition-transform lg:static lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
+    >
       <div className="px-4 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
         <Link href="/dashboard" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -27,7 +30,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-0.5">
         {NAV.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
@@ -35,14 +38,26 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors"
-              style={{
-                background: active ? 'var(--primary-soft)' : 'transparent',
-                color: active ? 'var(--primary-soft-text)' : 'var(--text-muted)',
-                fontWeight: active ? 500 : 400,
-              }}
+              aria-current={active ? 'page' : undefined}
+              className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                active
+                  ? 'font-medium'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)]'
+              }`}
+              style={active ? { background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' } : undefined}
             >
-              <Icon size={16} strokeWidth={active ? 2.25 : 2} />
+              {active && (
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full"
+                  style={{ background: 'var(--primary)' }}
+                />
+              )}
+              <Icon
+                size={16}
+                strokeWidth={active ? 2.25 : 2}
+                style={{ color: active ? 'var(--primary)' : undefined }}
+                className={active ? '' : 'transition-transform group-hover:scale-110'}
+              />
               {item.label}
             </Link>
           )

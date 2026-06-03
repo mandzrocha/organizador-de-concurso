@@ -7,6 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Exam } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
 import { deleteExamCascade } from '@/lib/exam-actions'
+import { useConfirm } from '@/components/ConfirmDialog'
+import { useToast } from '@/components/Toast'
+import { PageSkeleton } from '@/components/Skeleton'
+import { useDataChanged } from '@/lib/events'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList } from 'lucide-react'
@@ -21,8 +25,11 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
   const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
 
   useEffect(() => { loadExams() }, [])
+  useDataChanged(() => { loadExams() })
 
   async function loadExams() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -54,20 +61,24 @@ export default function ExamsPage() {
   async function setPrimary(examId: string) {
     await supabase.from('exams').update({ is_primary: false }).neq('id', examId)
     await supabase.from('exams').update({ is_primary: true }).eq('id', examId)
+    toast.success('Concurso definido como foco principal')
     loadExams()
   }
 
   async function deleteExam(examId: string, examName: string) {
-    const ok = confirm(
-      `Excluir "${examName}"?\n\n` +
-      `Isso apaga tópicos, histórico de estudos, revisões e planos relacionados a este concurso. NÃO pode ser desfeito.`
-    )
+    const ok = await confirm({
+      title: `Excluir "${examName}"?`,
+      message: 'Isso apaga tópicos, histórico de estudos, revisões e planos relacionados a este concurso. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
     if (!ok) return
     try {
       await deleteExamCascade(supabase, examId)
+      toast.success(`"${examName}" foi excluído`)
       loadExams()
     } catch (e: any) {
-      alert('Erro ao excluir: ' + e.message)
+      toast.error('Erro ao excluir: ' + e.message)
     }
   }
 
@@ -79,10 +90,11 @@ export default function ExamsPage() {
       return
     }
     await supabase.from('exams').update({ is_watching: false }).eq('id', examId)
+    toast.success('Concurso movido para estudo ativo')
     loadExams()
   }
 
-  if (loading) return <LoadingState />
+  if (loading) return <PageSkeleton variant="list" />
 
   const studying = exams.filter(e => !e.is_watching)
   const watching = exams.filter(e => e.is_watching)
@@ -165,7 +177,7 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
   return (
     <Link
       href={`/exams/${exam.id}`}
-      className="rounded-xl border overflow-hidden block transition-all hover:shadow-md"
+      className="rounded-xl border overflow-hidden block ef-hover-lift"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
     >
       <div className="p-5">
@@ -210,7 +222,7 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
             {!exam.is_primary && (
               <button
                 onClick={(e) => { e.preventDefault(); onSetPrimary(exam.id) }}
-                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
               >
                 Definir como foco
@@ -218,7 +230,7 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
             )}
             <button
               onClick={(e) => { e.preventDefault(); onDelete() }}
-              className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-lg border flex items-center justify-center transition-colors hover:bg-[var(--danger-soft)]"
               style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
               title="Excluir concurso"
             >
@@ -251,7 +263,7 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
   return (
     <Link
       href={`/exams/${exam.id}/edit`}
-      className="rounded-xl border overflow-hidden block transition-all hover:shadow-md"
+      className="rounded-xl border overflow-hidden block ef-hover-lift"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)', borderStyle: 'dashed' }}
     >
       <div className="p-4 flex items-center gap-4">
@@ -298,10 +310,3 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
   )
 }
 
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
-      <p className="text-sm">Carregando...</p>
-    </div>
-  )
-}

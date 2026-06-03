@@ -7,12 +7,16 @@ import { createClient } from '@/lib/supabase/client'
 import { Exam, Subject, Topic, StudyLog, ACTIVITY_LABELS, ACTIVITY_ICONS, ActivityType } from '@/lib/types'
 import { getTopicCompletionPercent } from '@/lib/progress'
 import { deleteExamCascade } from '@/lib/exam-actions'
+import { useConfirm } from '@/components/ConfirmDialog'
+import { useToast } from '@/components/Toast'
+import { PageSkeleton } from '@/components/Skeleton'
+import { useDataChanged } from '@/lib/events'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   ArrowLeft, Star, FolderOpen, Pencil, Trash2, Plus, ChevronDown, MoreVertical,
   GripVertical, ArrowUpDown, ArrowLeftRight, ArrowUp, ArrowDown, Check, RotateCcw,
-  Play, BookOpen, PenLine, RotateCw, X, CheckCircle2, Sparkles, BookMarked,
+  Play, BookOpen, PenLine, RotateCw, X, CheckCircle2, Sparkles, BookMarked, Search,
 } from 'lucide-react'
 
 interface TopicWithProgress extends Topic {
@@ -60,6 +64,8 @@ export default function ExamDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [subjects, setSubjects] = useState<SubjectWithProgress[]>([])
@@ -72,14 +78,20 @@ export default function ExamDetailPage() {
   const [moveTopic, setMoveTopic] = useState<{ topicId: string; currentSubjectId: string; topicName: string } | null>(null)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [query, setQuery] = useState('')
 
   useEffect(() => { loadData() }, [id])
+  useDataChanged(() => { loadData() })
 
   async function persistOrder(items: SubjectWithProgress[]) {
     // Persist order_index for each exam_subject in parallel
-    await Promise.all(items.map((s, i) =>
-      supabase.from('exam_subjects').update({ order_index: i }).eq('id', s.examSubjectId)
-    ))
+    try {
+      await Promise.all(items.map((s, i) =>
+        supabase.from('exam_subjects').update({ order_index: i }).eq('id', s.examSubjectId)
+      ))
+    } catch {
+      toast.error('Não foi possível salvar a nova ordem das matérias')
+    }
   }
 
   function reorderSubjects(fromIndex: number, toIndex: number) {
@@ -209,51 +221,71 @@ export default function ExamDetailPage() {
     setNewSubjectName('')
     setShowAddSubject(false)
     setSaving(false)
+    toast.success('Matéria adicionada')
     loadData()
   }
 
   async function deleteExam() {
-    const ok = confirm(
-      `Excluir "${exam?.name}"?\n\n` +
-      `Isso vai apagar TODAS as matérias vinculadas a este concurso, os tópicos, ` +
-      `o histórico de estudos e os planos do calendário. Esta ação NÃO pode ser desfeita.`
-    )
+    const ok = await confirm({
+      title: `Excluir "${exam?.name}"?`,
+      message: 'Isso vai apagar TODAS as matérias vinculadas a este concurso, os tópicos, o histórico de estudos e os planos do calendário. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
     if (!ok) return
     try {
       await deleteExamCascade(supabase, id)
+      toast.success('Concurso excluído')
       router.push('/exams')
     } catch (e: any) {
-      alert('Erro ao excluir: ' + e.message)
+      toast.error('Erro ao excluir: ' + e.message)
     }
   }
 
   async function renameSubject(subjectId: string, newName: string) {
     if (!newName.trim()) return
     await supabase.from('subjects').update({ name: newName.trim() }).eq('id', subjectId)
+    toast.success('Matéria renomeada')
     loadData()
   }
 
   async function toggleSubjectComplete(examSubjectId: string, currentCompletedAt: string | null) {
     const value = currentCompletedAt ? null : new Date().toISOString().split('T')[0]
     await supabase.from('exam_subjects').update({ completed_at: value }).eq('id', examSubjectId)
+    toast.success(value ? 'Matéria marcada como concluída' : 'Conclusão desmarcada')
     loadData()
   }
 
   async function removeSubjectFromExam(examSubjectId: string, subjectName: string) {
-    if (!confirm(`Remover "${subjectName}" deste concurso? Os tópicos e o histórico continuam salvos.`)) return
+    const ok = await confirm({
+      title: `Remover "${subjectName}" deste concurso?`,
+      message: 'Os tópicos e o histórico continuam salvos e podem ser readicionados depois.',
+      confirmLabel: 'Remover',
+      danger: true,
+    })
+    if (!ok) return
     await supabase.from('exam_subjects').delete().eq('id', examSubjectId)
+    toast.success(`"${subjectName}" removida do concurso`)
     loadData()
   }
 
   async function moveTopicToSubject(topicId: string, newSubjectId: string) {
     await supabase.from('topics').update({ subject_id: newSubjectId }).eq('id', topicId)
     setMoveTopic(null)
+    toast.success('Tópico movido')
     loadData()
   }
 
   async function deleteTopic(topicId: string, topicName: string) {
-    if (!confirm(`Excluir o tópico "${topicName}"? Os registros de estudo serão removidos.`)) return
+    const ok = await confirm({
+      title: `Excluir o tópico "${topicName}"?`,
+      message: 'Os registros de estudo desse tópico serão removidos.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
+    if (!ok) return
     await supabase.from('topics').delete().eq('id', topicId)
+    toast.success('Tópico excluído')
     loadData()
   }
 
@@ -264,9 +296,13 @@ export default function ExamDetailPage() {
   }
 
   async function persistTopicOrder(items: TopicWithProgress[]) {
-    await Promise.all(items.map((t, i) =>
-      supabase.from('topics').update({ order_index: i }).eq('id', t.id)
-    ))
+    try {
+      await Promise.all(items.map((t, i) =>
+        supabase.from('topics').update({ order_index: i }).eq('id', t.id)
+      ))
+    } catch {
+      toast.error('Não foi possível salvar a nova ordem dos tópicos')
+    }
   }
 
   function reorderTopics(subjectId: string, fromIndex: number, toIndex: number) {
@@ -305,14 +341,27 @@ export default function ExamDetailPage() {
         })
       }
     }
+    toast.success(value ? 'Tópico concluído' : 'Tópico reaberto')
     loadData()
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}><p className="text-sm">Carregando...</p></div>
+  if (loading) return <PageSkeleton variant="detail" />
   if (!exam) return null
 
   const totalTopics = subjects.reduce((s, sub) => s + sub.topics.length, 0)
   const overallPercent = subjects.length ? Math.round(subjects.reduce((s, sub) => s + sub.percent, 0) / subjects.length) : 0
+
+  // Busca: filtra matérias por nome ou por tópicos que casam, e expande os resultados
+  const q = query.trim().toLowerCase()
+  const visibleSubjects = subjects
+    .map((s, index) => {
+      if (!q) return { subject: s, index }
+      if (s.name.toLowerCase().includes(q)) return { subject: s, index }
+      const matchedTopics = s.topics.filter(t => t.name.toLowerCase().includes(q))
+      if (matchedTopics.length) return { subject: { ...s, topics: matchedTopics }, index }
+      return null
+    })
+    .filter((x): x is { subject: SubjectWithProgress; index: number } => x !== null)
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -347,10 +396,10 @@ export default function ExamDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/exams/${id}/edit`} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+          <Link href={`/exams/${id}/edit`} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5 hover:bg-[var(--surface-hover)]" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
             <Pencil size={12} /> Editar
           </Link>
-          <button onClick={deleteExam} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>
+          <button onClick={deleteExam} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5 hover:bg-[var(--danger-soft)]" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>
             <Trash2 size={12} /> Excluir
           </button>
         </div>
@@ -409,20 +458,48 @@ export default function ExamDetailPage() {
           </div>
         )}
 
+        {subjects.length > 1 && (
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            <input
+              type="text"
+              placeholder="Buscar matéria ou tópico..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              style={{ paddingLeft: 36, paddingRight: query ? 36 : 12 }}
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text-subtle)' }}
+                title="Limpar busca"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        )}
+
         {subjects.length === 0 ? (
           <div className="text-center py-16 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
             <BookMarked size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
             <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma matéria adicionada ainda.</p>
           </div>
+        ) : visibleSubjects.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nada encontrado para “{query}”.</p>
+          </div>
         ) : (
           <div className="grid gap-3">
-            {subjects.map((subject, index) => (
+            {visibleSubjects.map(({ subject, index }) => (
               <SubjectCard
                 key={subject.examSubjectId}
                 subject={subject}
                 examId={id}
                 index={index}
                 total={subjects.length}
+                forceExpanded={!!q}
                 isDragging={dragIndex === index}
                 isDragOver={dragOverIndex === index && dragIndex !== index}
                 onDragStart={() => setDragIndex(index)}
@@ -490,7 +567,7 @@ export default function ExamDetailPage() {
 function SubjectCard({
   subject, examId, index, total, isDragging, isDragOver,
   onDragStart, onDragEnter, onDragEnd, onDrop, onMoveUp, onMoveDown,
-  expanded, onToggle, onRefresh, onOpenLog,
+  expanded, forceExpanded = false, onToggle, onRefresh, onOpenLog,
   onRename, onToggleComplete, onRemove, onMoveTopic, onRenameTopic, onDeleteTopic, onToggleTopicComplete,
   onReorderTopics, onMoveTopicInSubject,
 }: {
@@ -507,6 +584,7 @@ function SubjectCard({
   onMoveUp: () => void
   onMoveDown: () => void
   expanded: boolean
+  forceExpanded?: boolean
   onToggle: () => void
   onRefresh: () => void
   onOpenLog: (topicId: string, topicName: string) => void
@@ -529,6 +607,7 @@ function SubjectCard({
   const menuRef = useRef<HTMLDivElement>(null)
   const [topicDragIndex, setTopicDragIndex] = useState<number | null>(null)
   const [topicDragOverIndex, setTopicDragOverIndex] = useState<number | null>(null)
+  const isExpanded = expanded || forceExpanded
 
   useEffect(() => {
     if (!menuOpen) return
@@ -583,9 +662,9 @@ function SubjectCard({
       className="rounded-2xl border overflow-hidden transition-all"
       style={{
         background: 'var(--surface)',
-        borderColor: isDragOver ? 'var(--primary)' : expanded ? subject.color : isCompleted ? 'var(--success)' : 'var(--border)',
-        boxShadow: isDragOver ? 'var(--shadow-lg)' : expanded ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-        opacity: isDragging ? 0.4 : isCompleted && !expanded ? 0.85 : 1,
+        borderColor: isDragOver ? 'var(--primary)' : isExpanded ? subject.color : isCompleted ? 'var(--success)' : 'var(--border)',
+        boxShadow: isDragOver ? 'var(--shadow-lg)' : isExpanded ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+        opacity: isDragging ? 0.4 : isCompleted && !isExpanded ? 0.85 : 1,
         transform: isDragOver ? 'translateY(-2px)' : 'none',
       }}
     >
@@ -594,11 +673,18 @@ function SubjectCard({
         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: subject.color }} />
 
         <div className="pl-3 pr-3 py-4 flex items-center gap-2">
-          {/* Drag handle */}
+          {/* Drag handle (arraste ou use as setas ↑/↓ com o teclado) */}
           <div
-            className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+            role="button"
+            tabIndex={0}
+            aria-label={`Reordenar ${subject.name}. Use as setas para cima e para baixo.`}
+            onKeyDown={e => {
+              if (e.key === 'ArrowUp') { e.preventDefault(); onMoveUp() }
+              else if (e.key === 'ArrowDown') { e.preventDefault(); onMoveDown() }
+            }}
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
             style={{ color: 'var(--text-subtle)' }}
-            title="Arraste para reordenar"
+            title="Arraste, ou foque e use ↑/↓"
           >
             <GripVertical size={14} />
           </div>
@@ -647,7 +733,7 @@ function SubjectCard({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ color: 'var(--text-muted)' }}
                 title="Opções"
               >
@@ -702,7 +788,7 @@ function SubjectCard({
             <button
               onClick={onToggle}
               className="transition-transform px-1 flex items-center"
-              style={{ color: 'var(--text-subtle)', transform: expanded ? 'rotate(180deg)' : 'rotate(0)' }}
+              style={{ color: 'var(--text-subtle)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}
             >
               <ChevronDown size={16} />
             </button>
@@ -710,7 +796,7 @@ function SubjectCard({
         </div>
       </div>
 
-      {expanded && (
+      {isExpanded && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
           {subject.topics.length === 0 ? (
             <p className="px-5 py-6 text-sm text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico ainda. Adicione um abaixo.</p>
@@ -829,11 +915,18 @@ function TopicRow({
       }}
     >
       <div className="flex items-start gap-3">
-        {/* Drag handle */}
+        {/* Drag handle (arraste ou use as setas ↑/↓ com o teclado) */}
         <div
-          className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none mt-1"
+          role="button"
+          tabIndex={0}
+          aria-label={`Reordenar ${topic.name}. Use as setas para cima e para baixo.`}
+          onKeyDown={e => {
+            if (e.key === 'ArrowUp') { e.preventDefault(); onMoveUp() }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); onMoveDown() }
+          }}
+          className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none mt-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
           style={{ color: 'var(--text-subtle)' }}
-          title="Arraste para reordenar"
+          title="Arraste, ou foque e use ↑/↓"
         >
           <GripVertical size={12} />
         </div>
@@ -941,7 +1034,7 @@ function TopicRow({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-7 h-7 rounded-md flex items-center justify-center"
+              className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]"
               style={{ color: 'var(--text-muted)' }}
               title="Opções"
             >
@@ -1212,12 +1305,31 @@ function LogStudyModal({
           )}
 
           {activity && (
-            <div className="flex gap-3">
-              <div style={{ width: '130px', flexShrink: 0 }}>
-                <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Duração (min)</label>
-                <input type="number" min="1" placeholder="45" value={duration} onChange={e => setDuration(e.target.value)} className="w-full" />
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  Duração (min) <span style={{ color: 'var(--text-subtle)' }}>· ajuda a calcular suas horas de estudo</span>
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[15, 30, 45, 60].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setDuration(String(p))}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors"
+                      style={{
+                        background: duration === String(p) ? 'var(--primary-soft)' : 'transparent',
+                        borderColor: duration === String(p) ? 'var(--primary)' : 'var(--border)',
+                        color: duration === String(p) ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {p}min
+                    </button>
+                  ))}
+                  <input type="number" min="1" placeholder="outro" value={duration} onChange={e => setDuration(e.target.value)} style={{ width: 80 }} />
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
+              <div>
                 <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Observações (opcional)</label>
                 <input type="text" placeholder="Ex: revisar questões 12-18" value={notes} onChange={e => setNotes(e.target.value)} className="w-full" />
               </div>

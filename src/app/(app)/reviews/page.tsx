@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { RevisionSchedule, Topic, Subject, ActivityType, StudyLog } from '@/lib/types'
 import { sm2 } from '@/lib/sm2'
 import { isSupabaseConfigured } from '@/lib/config'
+import { useToast } from '@/components/Toast'
+import { PageSkeleton } from '@/components/Skeleton'
+import { useDataChanged } from '@/lib/events'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, ArrowLeft, Check } from 'lucide-react'
@@ -66,8 +69,10 @@ export default function ReviewsPage() {
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<Tab>('pending')
   const [subjectFilter, setSubjectFilter] = useState<string>('all')
+  const toast = useToast()
 
   useEffect(() => { loadAll() }, [])
+  useDataChanged(() => { loadAll() })
 
   async function loadAll() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -115,6 +120,7 @@ export default function ReviewsPage() {
     })
     setSaving(false)
     setDoing(null)
+    toast.success(`Revisão registrada · próxima em ${result.interval_days} ${result.interval_days === 1 ? 'dia' : 'dias'}`)
     loadAll()
   }
 
@@ -126,6 +132,7 @@ export default function ReviewsPage() {
     await supabase.from('revision_schedule').update({
       next_review: next.toISOString().split('T')[0],
     }).eq('id', reviewId)
+    toast.info(`Revisão adiada em ${days} ${days === 1 ? 'dia' : 'dias'}`)
     loadAll()
   }
 
@@ -172,7 +179,7 @@ export default function ReviewsPage() {
     return { total, struggling, mastered, avgInterval, reviewedThisWeek }
   }, [allReviews, recentReviews, today])
 
-  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}><p className="text-sm">Carregando...</p></div>
+  if (loading) return <PageSkeleton variant="list" />
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
+import { PageSkeleton } from '@/components/Skeleton'
 import { format, parseISO, subDays, startOfDay, eachDayOfInterval, isSameDay, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { User, Clock, Flame, BookMarked, CheckCircle2, RotateCw, Trash2, Pencil } from 'lucide-react'
@@ -105,6 +106,8 @@ export default function ProfilePage() {
     if (m === 0) return `${h}h`
     return `${h}h ${m}min`
   }
+
+  if (loading) return <PageSkeleton variant="list" />
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
