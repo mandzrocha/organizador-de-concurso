@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Exam, Subject, Topic, StudyLog, ACTIVITY_LABELS, ACTIVITY_ICONS, ActivityType } from '@/lib/types'
 import { getTopicCompletionPercent } from '@/lib/progress'
-import { deleteExamCascade } from '@/lib/exam-actions'
+import { unenrollExam } from '@/lib/exam-actions'
+import { getUserId } from '@/lib/auth'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
@@ -16,7 +17,7 @@ import { ptBR } from 'date-fns/locale'
 import {
   ArrowLeft, Star, FolderOpen, Pencil, Trash2, Plus, ChevronDown, MoreVertical,
   GripVertical, ArrowUpDown, ArrowLeftRight, ArrowUp, ArrowDown, Check, RotateCcw,
-  Play, BookOpen, PenLine, RotateCw, X, CheckCircle2, Sparkles, BookMarked, Search,
+  Play, BookOpen, PenLine, RotateCw, X, CheckCircle2, Sparkles, BookMarked, Search, FileText,
 } from 'lucide-react'
 
 interface TopicWithProgress extends Topic {
@@ -113,6 +114,8 @@ export default function ExamDetailPage() {
   }
 
   async function loadData() {
+    const userId = await getUserId(supabase)
+    if (!userId) { router.push('/login'); return }
     const [examRes, esRes] = await Promise.all([
       supabase.from('exams').select('*').eq('id', id).single(),
       supabase.from('exam_subjects').select('*, subject:subjects(*)').eq('exam_id', id).order('order_index'),
@@ -151,21 +154,28 @@ export default function ExamDetailPage() {
       }
     }
 
-    const [topicsRes, logsRes] = await Promise.all([
-      // Topics são SEMPRE escopados por exam_id. Filtro estrito = topicos de
-      // outros concursos nunca aparecem aqui mesmo se as materias forem
-      // compartilhadas (caso clássico: BB e TJSP ambos com 'Lingua Portuguesa').
-      supabase
-        .from('topics')
-        .select('*')
-        .in('subject_id', subjectIds.length ? subjectIds : ['x'])
-        .eq('exam_id', id)
-        .order('order_index'),
-      supabase.from('study_logs').select('*').order('studied_at', { ascending: false }),
-    ])
-
+    // Topics são SEMPRE escopados por exam_id (catálogo compartilhado).
+    const topicsRes = await supabase
+      .from('topics')
+      .select('*')
+      .in('subject_id', subjectIds.length ? subjectIds : ['x'])
+      .eq('exam_id', id)
+      .order('order_index')
     const topics = topicsRes.data || []
+    const topicIds = topics.map((t: any) => t.id)
+    const esIds = examSubjectRows.map(es => es.id)
+
+    // Dados PESSOAIS deste usuário: logs + conclusões de tópico/matéria
+    const [logsRes, topicProgRes, subjProgRes] = await Promise.all([
+      supabase.from('study_logs').select('*').eq('user_id', userId).order('studied_at', { ascending: false }),
+      supabase.from('user_topic_progress').select('topic_id, completed_at').eq('user_id', userId).in('topic_id', topicIds.length ? topicIds : ['x']),
+      supabase.from('user_subject_progress').select('exam_subject_id, completed_at').eq('user_id', userId).in('exam_subject_id', esIds.length ? esIds : ['x']),
+    ])
     const logs: StudyLog[] = logsRes.data || []
+    const topicCompletedMap = new Map<string, string>()
+    for (const r of topicProgRes.data || []) if (r.completed_at) topicCompletedMap.set(r.topic_id, r.completed_at)
+    const subjectCompletedMap = new Map<string, string>()
+    for (const r of subjProgRes.data || []) if (r.completed_at) subjectCompletedMap.set(r.exam_subject_id, r.completed_at)
 
     const completedByTopic: Record<string, Set<string>> = {}
     const lastExerciseByTopic: Record<string, number | null> = {}
@@ -185,10 +195,12 @@ export default function ExamDetailPage() {
       const subject = es.subject as Subject
       const subTopics: TopicWithProgress[] = topics.filter(t => t.subject_id === subject.id).map(topic => {
         const completed = [...(completedByTopic[topic.id] || [])] as ActivityType[]
+        const userCompletedAt = topicCompletedMap.get(topic.id) ?? null
         return {
           ...topic,
+          completed_at: userCompletedAt,
           completedActivities: completed,
-          percent: getTopicCompletionPercent(completed, topic.completed_at),
+          percent: getTopicCompletionPercent(completed, userCompletedAt),
           lastExerciseScore: lastExerciseByTopic[topic.id] ?? null,
         }
       })
@@ -196,7 +208,7 @@ export default function ExamDetailPage() {
       return {
         ...subject,
         examSubjectId: es.id,
-        completedAt: es.completed_at ?? null,
+        completedAt: subjectCompletedMap.get(es.id) ?? null,
         topics: subTopics,
         percent,
       }
@@ -227,18 +239,20 @@ export default function ExamDetailPage() {
 
   async function deleteExam() {
     const ok = await confirm({
-      title: `Excluir "${exam?.name}"?`,
-      message: 'Isso vai apagar TODAS as matérias vinculadas a este concurso, os tópicos, o histórico de estudos e os planos do calendário. Esta ação não pode ser desfeita.',
-      confirmLabel: 'Excluir',
+      title: `Remover "${exam?.name}" dos seus estudos?`,
+      message: 'Isso apaga o SEU histórico de estudos, revisões, planos e progresso deste concurso. O edital e as matérias continuam disponíveis na biblioteca.',
+      confirmLabel: 'Remover',
       danger: true,
     })
     if (!ok) return
     try {
-      await deleteExamCascade(supabase, id)
-      toast.success('Concurso excluído')
+      const userId = await getUserId(supabase)
+      if (!userId) return
+      await unenrollExam(supabase, id, userId)
+      toast.success('Concurso removido dos seus estudos')
       router.push('/exams')
     } catch (e: any) {
-      toast.error('Erro ao excluir: ' + e.message)
+      toast.error('Erro ao remover: ' + e.message)
     }
   }
 
@@ -250,8 +264,13 @@ export default function ExamDetailPage() {
   }
 
   async function toggleSubjectComplete(examSubjectId: string, currentCompletedAt: string | null) {
+    const userId = await getUserId(supabase)
+    if (!userId) return
     const value = currentCompletedAt ? null : new Date().toISOString().split('T')[0]
-    await supabase.from('exam_subjects').update({ completed_at: value }).eq('id', examSubjectId)
+    await supabase.from('user_subject_progress').upsert(
+      { user_id: userId, exam_subject_id: examSubjectId, completed_at: value },
+      { onConflict: 'user_id,exam_subject_id' }
+    )
     toast.success(value ? 'Matéria marcada como concluída' : 'Conclusão desmarcada')
     loadData()
   }
@@ -326,15 +345,21 @@ export default function ExamDetailPage() {
   }
 
   async function toggleTopicComplete(topicId: string, currentCompletedAt: string | null) {
+    const userId = await getUserId(supabase)
+    if (!userId) return
     const value = currentCompletedAt ? null : new Date().toISOString().split('T')[0]
-    await supabase.from('topics').update({ completed_at: value }).eq('id', topicId)
+    await supabase.from('user_topic_progress').upsert(
+      { user_id: userId, topic_id: topicId, completed_at: value },
+      { onConflict: 'user_id,topic_id' }
+    )
 
     // If marking complete and no revision schedule exists, create one so reviews continue
     if (value) {
-      const { data: existing } = await supabase.from('revision_schedule').select('id').eq('topic_id', topicId).maybeSingle()
+      const { data: existing } = await supabase.from('revision_schedule').select('id').eq('user_id', userId).eq('topic_id', topicId).maybeSingle()
       if (!existing) {
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
         await supabase.from('revision_schedule').insert({
+          user_id: userId,
           topic_id: topicId,
           next_review: tomorrow.toISOString().split('T')[0],
           last_reviewed: new Date().toISOString().split('T')[0],
@@ -396,6 +421,18 @@ export default function ExamDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {exam.edital_url && (
+            <a
+              href={exam.edital_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5 hover:bg-[var(--surface-hover)]"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+              title="Abrir o PDF do edital"
+            >
+              <FileText size={12} /> Ver edital
+            </a>
+          )}
           <Link href={`/exams/${id}/edit`} className="text-xs px-3 py-1.5 rounded-lg border transition-colors inline-flex items-center gap-1.5 hover:bg-[var(--surface-hover)]" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
             <Pencil size={12} /> Editar
           </Link>
@@ -1191,7 +1228,11 @@ function LogStudyModal({
     if (!canSave) return
     setSaving(true)
 
+    const userId = await getUserId(supabase)
+    if (!userId) { setSaving(false); return }
+
     await supabase.from('study_logs').insert({
+      user_id: userId,
       topic_id: topicId,
       activity_type: activity,
       notes: notes || null,
@@ -1201,7 +1242,7 @@ function LogStudyModal({
       studied_at: new Date().toISOString().split('T')[0],
     })
 
-    const { data: existing } = await supabase.from('revision_schedule').select('*').eq('topic_id', topicId).maybeSingle()
+    const { data: existing } = await supabase.from('revision_schedule').select('*').eq('user_id', userId).eq('topic_id', topicId).maybeSingle()
 
     if (activity === 'exercises' && pct !== null) {
       const quality = getExerciseQuality(pct)
@@ -1210,11 +1251,12 @@ function LogStudyModal({
       if (existing) {
         await supabase.from('revision_schedule').update({ ...result, last_reviewed: new Date().toISOString().split('T')[0] }).eq('id', existing.id)
       } else {
-        await supabase.from('revision_schedule').insert({ topic_id: topicId, ...result, last_reviewed: new Date().toISOString().split('T')[0] })
+        await supabase.from('revision_schedule').insert({ user_id: userId, topic_id: topicId, ...result, last_reviewed: new Date().toISOString().split('T')[0] })
       }
     } else if (!existing) {
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
       await supabase.from('revision_schedule').insert({
+        user_id: userId,
         topic_id: topicId,
         next_review: tomorrow.toISOString().split('T')[0],
         last_reviewed: new Date().toISOString().split('T')[0],

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { RevisionSchedule, Topic, Subject, ActivityType, StudyLog } from '@/lib/types'
 import { sm2 } from '@/lib/sm2'
 import { isSupabaseConfigured } from '@/lib/config'
+import { getUserId } from '@/lib/auth'
 import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged } from '@/lib/events'
@@ -76,13 +77,17 @@ export default function ReviewsPage() {
 
   async function loadAll() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
+    const userId = await getUserId(supabase)
+    if (!userId) { setLoading(false); return }
     const [revRes, logsRes] = await Promise.all([
       supabase.from('revision_schedule')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .order('next_review', { ascending: true })
         .limit(500),
       supabase.from('study_logs')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .eq('activity_type', 'review')
         .order('studied_at', { ascending: false })
         .limit(40),
@@ -102,12 +107,15 @@ export default function ReviewsPage() {
   }) {
     if (!doing) return
     setSaving(true)
+    const userId = await getUserId(supabase)
+    if (!userId) { setSaving(false); return }
     const result = sm2(payload.quality, doing.repetitions, doing.ease_factor, doing.interval_days)
     await supabase.from('revision_schedule').update({
       ...result,
       last_reviewed: new Date().toISOString().split('T')[0],
     }).eq('id', doing.id)
     await supabase.from('study_logs').insert({
+      user_id: userId,
       topic_id: doing.topic_id,
       // The session is always logged as a review; the modality (videoaula, questões, etc.)
       // is stored in notes so the review history keeps showing it.

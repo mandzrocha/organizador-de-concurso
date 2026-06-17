@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/auth'
 import { SUBJECT_COLORS } from '@/lib/types'
 
 interface ExtractedSubject {
@@ -107,21 +108,56 @@ export default function NewExamPage() {
     }
   }
 
+  // Sobe o PDF do edital pro Storage e devolve a URL pública. NÃO bloqueia:
+  // se o bucket ainda não existir (Supabase não configurado), retorna null e o
+  // concurso é salvo do mesmo jeito, só sem o PDF arquivado.
+  async function uploadEditalPdf(examId: string): Promise<string | null> {
+    const pdf = files.find(f => f.type === 'application/pdf')
+    if (!pdf) return null
+    try {
+      const safeName = pdf.name.replace(/[^\w.\-]+/g, '_').slice(-80)
+      const path = `${examId}/${Date.now()}-${safeName}`
+      const { error } = await supabase.storage.from('editais').upload(path, pdf, {
+        contentType: 'application/pdf',
+        upsert: false,
+      })
+      if (error) return null
+      return supabase.storage.from('editais').getPublicUrl(path).data.publicUrl
+    } catch {
+      return null
+    }
+  }
+
+  // Concurso = catálogo COMPARTILHADO. is_primary/is_watching são pessoais e
+  // vão para user_exams, não para a tabela exams.
   function buildExamPayload() {
     return {
       name: examInfo.name,
       organization: examInfo.organization || null,
       description: examInfo.description || null,
-      is_primary: examInfo.is_watching ? false : examInfo.is_primary,
-      is_watching: examInfo.is_watching,
       exam_date: examInfo.is_watching || examInfo.pre_edital ? null : (examInfo.exam_date || null),
     }
+  }
+
+  // Inscreve o usuário no concurso (relação pessoal). Trata o "foco principal".
+  async function enrollUser(examId: string, userId: string) {
+    const isPrimary = examInfo.is_watching ? false : examInfo.is_primary
+    if (isPrimary) {
+      await supabase.from('user_exams').update({ is_primary: false }).eq('user_id', userId)
+    }
+    await supabase.from('user_exams').upsert(
+      { user_id: userId, exam_id: examId, is_primary: isPrimary, is_watching: examInfo.is_watching },
+      { onConflict: 'user_id,exam_id' }
+    )
   }
 
   async function saveExam() {
     setSaving(true)
     try {
-      // Create exam
+      const userId = await getUserId(supabase)
+      if (!userId) { setError('Sua sessão expirou. Faça login novamente.'); setSaving(false); return }
+
+      // Create exam (catálogo compartilhado)
       const { data: exam, error: examErr } = await supabase
         .from('exams')
         .insert(buildExamPayload())
@@ -129,10 +165,13 @@ export default function NewExamPage() {
         .single()
       if (examErr) throw examErr
 
-      // If primary, unset others
-      if (examInfo.is_primary) {
-        await supabase.from('exams').update({ is_primary: false }).neq('id', exam.id)
-        await supabase.from('exams').update({ is_primary: true }).eq('id', exam.id)
+      // Inscreve o usuário (relação pessoal + foco principal)
+      await enrollUser(exam.id, userId)
+
+      // Arquiva o PDF do edital no Storage (não-bloqueante)
+      const editalUrl = await uploadEditalPdf(exam.id)
+      if (editalUrl) {
+        await supabase.from('exams').update({ edital_url: editalUrl }).eq('id', exam.id)
       }
 
       // Create or find subjects and link them.
@@ -209,6 +248,9 @@ export default function NewExamPage() {
   async function saveExamWithoutEdital() {
     setSaving(true)
     try {
+      const userId = await getUserId(supabase)
+      if (!userId) { setError('Sua sessão expirou. Faça login novamente.'); setSaving(false); return }
+
       const { data: exam, error: examErr } = await supabase
         .from('exams')
         .insert(buildExamPayload())
@@ -216,10 +258,7 @@ export default function NewExamPage() {
         .single()
       if (examErr) throw examErr
 
-      if (examInfo.is_primary) {
-        await supabase.from('exams').update({ is_primary: false }).neq('id', exam.id)
-        await supabase.from('exams').update({ is_primary: true }).eq('id', exam.id)
-      }
+      await enrollUser(exam.id, userId)
 
       router.push(`/exams/${exam.id}`)
     } catch (e: any) {

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Exam } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
-import { deleteExamCascade } from '@/lib/exam-actions'
+import { unenrollExam } from '@/lib/exam-actions'
+import { getUserId } from '@/lib/auth'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
@@ -33,52 +34,80 @@ export default function ExamsPage() {
 
   async function loadExams() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
-    const { data: examsData } = await supabase.from('exams').select('*').order('is_primary', { ascending: false }).order('created_at')
+    const userId = await getUserId(supabase)
+    if (!userId) { setLoading(false); return }
 
-    const withStats = await Promise.all((examsData || []).map(async exam => {
+    // Concursos em que ESTE usuário está inscrito (flags vêm de user_exams)
+    const { data: enrollments } = await supabase
+      .from('user_exams')
+      .select('is_primary, is_watching, created_at, exam:exams(*)')
+      .eq('user_id', userId)
+      .order('created_at')
+    const rows = (enrollments || []).filter((r: any) => r.exam)
+
+    // Tópicos concluídos por este usuário
+    const { data: tp } = await supabase
+      .from('user_topic_progress')
+      .select('topic_id, completed_at')
+      .eq('user_id', userId)
+    const completedTopics = new Set((tp || []).filter((t: any) => t.completed_at).map((t: any) => t.topic_id))
+
+    const withStats = await Promise.all(rows.map(async (row: any) => {
+      const exam = row.exam
       const { data: es } = await supabase.from('exam_subjects').select('subject_id').eq('exam_id', exam.id)
-      const subjectIds = (es || []).map(e => e.subject_id)
-      const { data: topics } = await supabase.from('topics').select('id, completed_at').in('subject_id', subjectIds.length ? subjectIds : ['x'])
+      const subjectIds = (es || []).map((e: any) => e.subject_id)
+      const { data: topics } = await supabase.from('topics').select('id').eq('exam_id', exam.id)
       const topicList = topics || []
-      const topicIds = topicList.map(t => t.id)
-      const { data: logs } = await supabase.from('study_logs').select('topic_id, activity_type').in('topic_id', topicIds.length ? topicIds : ['x'])
+      const topicIds = topicList.map((t: any) => t.id)
+      const { data: logs } = await supabase.from('study_logs').select('topic_id, activity_type').eq('user_id', userId).in('topic_id', topicIds.length ? topicIds : ['x'])
       const completedByTopic: Record<string, Set<string>> = {}
       for (const log of logs || []) {
         if (!completedByTopic[log.topic_id]) completedByTopic[log.topic_id] = new Set()
         completedByTopic[log.topic_id].add(log.activity_type)
       }
-      const totalProgress = topicList.reduce((sum, t) => {
-        if (t.completed_at) return sum + 100
+      const totalProgress = topicList.reduce((sum: number, t: any) => {
+        if (completedTopics.has(t.id)) return sum + 100
         return sum + ((completedByTopic[t.id]?.size || 0) / 4) * 100
       }, 0)
-      return { ...exam, subject_count: subjectIds.length, progress: topicIds.length ? Math.round(totalProgress / topicIds.length) : 0 }
+      return {
+        ...exam,
+        is_primary: row.is_primary,
+        is_watching: row.is_watching,
+        subject_count: subjectIds.length,
+        progress: topicIds.length ? Math.round(totalProgress / topicIds.length) : 0,
+      }
     }))
 
+    withStats.sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
     setExams(withStats)
     setLoading(false)
   }
 
   async function setPrimary(examId: string) {
-    await supabase.from('exams').update({ is_primary: false }).neq('id', examId)
-    await supabase.from('exams').update({ is_primary: true }).eq('id', examId)
+    const userId = await getUserId(supabase)
+    if (!userId) return
+    await supabase.from('user_exams').update({ is_primary: false }).eq('user_id', userId)
+    await supabase.from('user_exams').update({ is_primary: true }).eq('user_id', userId).eq('exam_id', examId)
     toast.success('Concurso definido como foco principal')
     loadExams()
   }
 
   async function deleteExam(examId: string, examName: string) {
     const ok = await confirm({
-      title: `Excluir "${examName}"?`,
-      message: 'Isso apaga tópicos, histórico de estudos, revisões e planos relacionados a este concurso. Esta ação não pode ser desfeita.',
-      confirmLabel: 'Excluir',
+      title: `Remover "${examName}" dos seus estudos?`,
+      message: 'Isso apaga o SEU histórico de estudos, revisões, planos e progresso deste concurso. O edital e as matérias continuam disponíveis na biblioteca.',
+      confirmLabel: 'Remover',
       danger: true,
     })
     if (!ok) return
     try {
-      await deleteExamCascade(supabase, examId)
-      toast.success(`"${examName}" foi excluído`)
+      const userId = await getUserId(supabase)
+      if (!userId) return
+      await unenrollExam(supabase, examId, userId)
+      toast.success(`"${examName}" removido dos seus estudos`)
       loadExams()
     } catch (e: any) {
-      toast.error('Erro ao excluir: ' + e.message)
+      toast.error('Erro ao remover: ' + e.message)
     }
   }
 
@@ -89,7 +118,9 @@ export default function ExamsPage() {
       router.push(`/exams/${examId}/edit?tab=edital`)
       return
     }
-    await supabase.from('exams').update({ is_watching: false }).eq('id', examId)
+    const userId = await getUserId(supabase)
+    if (!userId) return
+    await supabase.from('user_exams').update({ is_watching: false }).eq('user_id', userId).eq('exam_id', examId)
     toast.success('Concurso movido para estudo ativo')
     loadExams()
   }

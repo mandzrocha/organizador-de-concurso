@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CalendarPlan, Subject, Topic, ActivityType, ACTIVITY_LABELS, ACTIVITY_ICONS, PlanStatus } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
+import { getUserId } from '@/lib/auth'
 import { PageSkeleton } from '@/components/Skeleton'
 import { format, addDays, startOfWeek, parseISO, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -34,18 +35,27 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return
-    supabase.from('exams').select('id, name, is_primary').then(({ data }) => setExams(data || []))
+    getUserId(supabase).then(uid => {
+      if (!uid) return
+      supabase.from('user_exams').select('is_primary, exam:exams(id, name)').eq('user_id', uid)
+        .then(({ data }) => setExams(
+          (data || []).filter((r: any) => r.exam).map((r: any) => ({ id: r.exam.id, name: r.exam.name, is_primary: r.is_primary }))
+        ))
+    })
   }, [])
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
   const loadPlans = useCallback(async () => {
     if (!isSupabaseConfigured()) { setLoading(false); return }
+    const userId = await getUserId(supabase)
+    if (!userId) { setLoading(false); return }
     const from = weekDays[0].toISOString().split('T')[0]
     const to = weekDays[6].toISOString().split('T')[0]
     const { data } = await supabase
       .from('calendar_plans')
       .select('*, topic:topics(*, subject:subjects(*)), subject:subjects(*)')
+      .eq('user_id', userId)
       .gte('planned_date', from)
       .lte('planned_date', to)
       .order('order_index')
@@ -60,9 +70,15 @@ export default function CalendarPage() {
   }, [loadPlans])
 
   async function loadTopics() {
+    const userId = await getUserId(supabase)
+    if (!userId) { setTopics([]); return }
+    const { data: enr } = await supabase.from('user_exams').select('exam_id').eq('user_id', userId)
+    const examIds = (enr || []).map((e: any) => e.exam_id)
+    if (examIds.length === 0) { setTopics([]); return }
     const { data } = await supabase
       .from('topics')
       .select('*, subject:subjects(*)')
+      .in('exam_id', examIds)
       .order('name')
     setTopics((data || []) as any)
   }
@@ -91,11 +107,15 @@ export default function CalendarPage() {
         // Only log if this is a topic-level plan; subject-level plans are aggregate
         // and not individually attached to study_logs (would need to log every topic)
         if (plan.topic_id) {
-          await supabase.from('study_logs').insert({
-            topic_id: plan.topic_id,
-            activity_type: plan.activity_type,
-            studied_at: plan.planned_date,
-          })
+          const userId = await getUserId(supabase)
+          if (userId) {
+            await supabase.from('study_logs').insert({
+              user_id: userId,
+              topic_id: plan.topic_id,
+              activity_type: plan.activity_type,
+              studied_at: plan.planned_date,
+            })
+          }
         }
       }
     }
@@ -123,7 +143,9 @@ export default function CalendarPage() {
         return
       }
       if (data.plans) {
-        await supabase.from('calendar_plans').insert(data.plans)
+        const userId = await getUserId(supabase)
+        const rows = (data.plans as any[]).map(p => ({ ...p, user_id: userId }))
+        await supabase.from('calendar_plans').insert(rows)
         loadPlans()
         setShowWizard(false)
       }
@@ -264,8 +286,11 @@ export default function CalendarPage() {
           onClose={() => setShowAddModal(null)}
           onSave={async (target, activityTypes, notes) => {
             const existing = plans.filter(p => p.planned_date === showAddModal)
+            const userId = await getUserId(supabase)
+            if (!userId) return
             // One row per selected activity → each becomes its own task in the day.
             const rows = activityTypes.map((activityType, i) => ({
+              user_id: userId,
               planned_date: showAddModal,
               topic_id: target.kind === 'topic' ? target.id : null,
               subject_id: target.kind === 'subject' ? target.id : null,

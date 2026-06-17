@@ -1,9 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight, User } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight, User, LogOut } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
+import { createClient } from '@/lib/supabase/client'
+import { isSupabaseConfigured } from '@/lib/config'
 
 const NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -16,7 +19,23 @@ const NAV = [
 
 export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean; onClose?: () => void } = {}) {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, toggle } = useTheme()
+  const [email, setEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
+  }, [])
+
+  async function signOut() {
+    if (isSupabaseConfigured()) {
+      await createClient().auth.signOut()
+    }
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside
@@ -65,6 +84,23 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       </nav>
 
       <div className="p-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+        {email && (
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: 'var(--surface-hover)' }}>
+            <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold uppercase" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
+              {email[0]}
+            </span>
+            <span className="text-xs truncate flex-1" style={{ color: 'var(--text-muted)' }} title={email}>{email}</span>
+            <button
+              onClick={signOut}
+              className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--danger-soft)]"
+              style={{ color: 'var(--text-subtle)' }}
+              title="Sair"
+              aria-label="Sair da conta"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
         <button
           onClick={toggle}
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"

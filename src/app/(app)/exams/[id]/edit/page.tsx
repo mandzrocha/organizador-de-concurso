@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Exam, SUBJECT_COLORS } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
-import { deleteExamCascade } from '@/lib/exam-actions'
+import { unenrollExam } from '@/lib/exam-actions'
+import { getUserId } from '@/lib/auth'
 import type { SubjectDiff, EditalDiff } from '@/app/api/compare-edital/route'
 
 type TabKey = 'info' | 'edital'
@@ -56,26 +57,31 @@ export default function EditExamPage() {
   async function deleteExam() {
     if (!exam) return
     const ok = confirm(
-      `Excluir "${exam.name}"?\n\n` +
-      `Isso vai apagar TODAS as matérias vinculadas a este concurso, seus tópicos, ` +
-      `o histórico de estudos e os planos do calendário. Esta ação NÃO pode ser desfeita.`
+      `Remover "${exam.name}" dos seus estudos?\n\n` +
+      `Isso apaga o SEU histórico de estudos, revisões, planos e progresso deste concurso. ` +
+      `O edital e as matérias continuam disponíveis na biblioteca.`
     )
     if (!ok) return
     setSaving(true)
     try {
-      await deleteExamCascade(supabase, id)
+      const userId = await getUserId(supabase)
+      if (!userId) { setSaving(false); return }
+      await unenrollExam(supabase, id, userId)
       router.push('/exams')
     } catch (e: any) {
       setSaving(false)
-      alert('Erro ao excluir: ' + e.message)
+      alert('Erro ao remover: ' + e.message)
     }
   }
 
   async function loadExam() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
-    const [{ data }, { count }] = await Promise.all([
+    const userId = await getUserId(supabase)
+    if (!userId) { router.push('/login'); return }
+    const [{ data }, { count }, { data: enr }] = await Promise.all([
       supabase.from('exams').select('*').eq('id', id).single(),
       supabase.from('exam_subjects').select('*', { count: 'exact', head: true }).eq('exam_id', id),
+      supabase.from('user_exams').select('is_primary, is_watching').eq('user_id', userId).eq('exam_id', id).maybeSingle(),
     ])
     if (!data) { router.push('/exams'); return }
     setExam(data)
@@ -85,8 +91,8 @@ export default function EditExamPage() {
       organization: data.organization || '',
       exam_date: data.exam_date || '',
       description: data.description || '',
-      is_primary: data.is_primary,
-      is_watching: data.is_watching || false,
+      is_primary: enr?.is_primary ?? false,
+      is_watching: enr?.is_watching ?? false,
       pre_edital: !data.exam_date,
     })
     setLoading(false)
@@ -95,19 +101,24 @@ export default function EditExamPage() {
   async function saveInfo() {
     setSaving(true)
     setSaveMsg('')
+    const userId = await getUserId(supabase)
+    if (!userId) { setSaving(false); return }
+
     await supabase.from('exams').update({
       name: form.name,
       organization: form.organization || null,
       description: form.description || null,
-      is_primary: form.is_watching ? false : form.is_primary,
-      is_watching: form.is_watching,
       exam_date: form.is_watching || form.pre_edital ? null : (form.exam_date || null),
     }).eq('id', id)
 
-    if (!form.is_watching && form.is_primary) {
-      await supabase.from('exams').update({ is_primary: false }).neq('id', id)
-      await supabase.from('exams').update({ is_primary: true }).eq('id', id)
+    const isPrimary = form.is_watching ? false : form.is_primary
+    if (isPrimary) {
+      await supabase.from('user_exams').update({ is_primary: false }).eq('user_id', userId)
     }
+    await supabase.from('user_exams').upsert(
+      { user_id: userId, exam_id: id, is_primary: isPrimary, is_watching: form.is_watching },
+      { onConflict: 'user_id,exam_id' }
+    )
 
     setSaving(false)
     setSaveMsg('Salvo!')
@@ -276,7 +287,10 @@ export default function EditExamPage() {
       }
 
       if (promoteToStudying) {
-        await supabase.from('exams').update({ is_watching: false }).eq('id', id)
+        const userId = await getUserId(supabase)
+        if (userId) {
+          await supabase.from('user_exams').update({ is_watching: false }).eq('user_id', userId).eq('exam_id', id)
+        }
         router.push(`/exams/${id}`)
       } else {
         // keep watching, just reset

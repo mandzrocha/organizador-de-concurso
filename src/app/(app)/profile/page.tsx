@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
+import { getUserId } from '@/lib/auth'
 import { PageSkeleton } from '@/components/Skeleton'
 import { format, parseISO, subDays, startOfDay, eachDayOfInterval, isSameDay, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -36,18 +37,32 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isSupabaseConfigured()) { setLoading(false); return }
     (async () => {
-      const [logsRes, examsRes, subjectsRes, topicsRes, completeRes, revRes] = await Promise.all([
-        supabase.from('study_logs').select('studied_at, duration_minutes, activity_type').order('studied_at', { ascending: false }).limit(500),
-        supabase.from('exams').select('id', { count: 'exact', head: true }).eq('is_watching', false),
-        supabase.from('subjects').select('id', { count: 'exact', head: true }),
-        supabase.from('topics').select('id', { count: 'exact', head: true }),
-        supabase.from('topics').select('id', { count: 'exact', head: true }).not('completed_at', 'is', null),
-        supabase.from('study_logs').select('id', { count: 'exact', head: true }).eq('activity_type', 'review'),
+      const userId = await getUserId(supabase)
+      if (!userId) { setLoading(false); return }
+
+      // Acervo do usuário: a partir dos concursos em que ele está inscrito
+      const { data: enr } = await supabase.from('user_exams').select('exam_id, is_watching').eq('user_id', userId)
+      const examIds = (enr || []).map((e: any) => e.exam_id)
+      const studyingCount = (enr || []).filter((e: any) => !e.is_watching).length
+
+      let subjectCount = 0
+      let topicCount = 0
+      if (examIds.length > 0) {
+        const { data: es } = await supabase.from('exam_subjects').select('subject_id').in('exam_id', examIds)
+        subjectCount = new Set((es || []).map((e: any) => e.subject_id)).size
+        const { count: tCount } = await supabase.from('topics').select('id', { count: 'exact', head: true }).in('exam_id', examIds)
+        topicCount = tCount || 0
+      }
+
+      const [logsRes, completeRes, revRes] = await Promise.all([
+        supabase.from('study_logs').select('studied_at, duration_minutes, activity_type').eq('user_id', userId).order('studied_at', { ascending: false }).limit(500),
+        supabase.from('user_topic_progress').select('id', { count: 'exact', head: true }).eq('user_id', userId).not('completed_at', 'is', null),
+        supabase.from('study_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('activity_type', 'review'),
       ])
       setLogs((logsRes.data || []) as LogRow[])
-      setExamCount(examsRes.count || 0)
-      setSubjectCount(subjectsRes.count || 0)
-      setTopicCount(topicsRes.count || 0)
+      setExamCount(studyingCount)
+      setSubjectCount(subjectCount)
+      setTopicCount(topicCount)
       setCompletedTopics(completeRes.count || 0)
       setReviewCount(revRes.count || 0)
       setLoading(false)

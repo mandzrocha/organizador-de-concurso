@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
+import { getUserId } from '@/lib/auth'
 import { Subject, Topic, ActivityType } from '@/lib/types'
 import { sm2 } from '@/lib/sm2'
 import { useToast } from './Toast'
@@ -39,7 +40,13 @@ export function StudyToolsProvider({ children }: { children: React.ReactNode }) 
   const loadTopics = useMemo(() => async () => {
     if (!isSupabaseConfigured()) return
     try {
-      const { data } = await supabase.from('topics').select('*, subject:subjects(*)')
+      const userId = await getUserId(supabase)
+      if (!userId) { setTopics([]); return }
+      // Só tópicos dos concursos em que o usuário está inscrito
+      const { data: enr } = await supabase.from('user_exams').select('exam_id').eq('user_id', userId)
+      const examIds = (enr || []).map((e: any) => e.exam_id)
+      if (examIds.length === 0) { setTopics([]); return }
+      const { data } = await supabase.from('topics').select('*, subject:subjects(*)').in('exam_id', examIds)
       setTopics((data || []) as any)
     } catch { /* sem config — ignora */ }
   }, [supabase])
@@ -379,7 +386,11 @@ function QuickLogModal({ topics, onClose, onSaved }: {
     if (!canSave) return
     setSaving(true)
     try {
+      const userId = await getUserId(supabase)
+      if (!userId) { toast.error('Sua sessão expirou. Faça login novamente.'); setSaving(false); return }
+
       await supabase.from('study_logs').insert({
+        user_id: userId,
         topic_id: topicId,
         activity_type: activity,
         duration_minutes: duration ? parseInt(duration) : null,
@@ -388,7 +399,7 @@ function QuickLogModal({ topics, onClose, onSaved }: {
         studied_at: new Date().toISOString().split('T')[0],
       })
 
-      const { data: existing } = await supabase.from('revision_schedule').select('*').eq('topic_id', topicId).maybeSingle()
+      const { data: existing } = await supabase.from('revision_schedule').select('*').eq('user_id', userId).eq('topic_id', topicId).maybeSingle()
       if (activity === 'exercises' && totalNum > 0) {
         const pct = (correctNum / totalNum) * 100
         const quality = pct >= 95 ? 5 : pct >= 85 ? 4 : pct >= 70 ? 3 : pct >= 50 ? 2 : 1
@@ -396,11 +407,12 @@ function QuickLogModal({ topics, onClose, onSaved }: {
         if (existing) {
           await supabase.from('revision_schedule').update({ ...result, last_reviewed: new Date().toISOString().split('T')[0] }).eq('id', existing.id)
         } else {
-          await supabase.from('revision_schedule').insert({ topic_id: topicId, ...result, last_reviewed: new Date().toISOString().split('T')[0] })
+          await supabase.from('revision_schedule').insert({ user_id: userId, topic_id: topicId, ...result, last_reviewed: new Date().toISOString().split('T')[0] })
         }
       } else if (!existing) {
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
         await supabase.from('revision_schedule').insert({
+          user_id: userId,
           topic_id: topicId,
           next_review: tomorrow.toISOString().split('T')[0],
           last_reviewed: new Date().toISOString().split('T')[0],

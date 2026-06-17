@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Exam, Subject, Topic, StudyLog, RevisionSchedule, CalendarPlan } from '@/lib/types'
 import { getTopicCompletionPercent } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/config'
+import { getUserId } from '@/lib/auth'
 import { useStudyTools } from '@/components/StudyTools'
 import { useDataChanged } from '@/lib/events'
 import { PageSkeleton } from '@/components/Skeleton'
@@ -45,59 +46,79 @@ export default function DashboardPage() {
       setLoading(false)
       return
     }
+    const userId = await getUserId(supabase)
+    if (!userId) {
+      setData({ exams: [], todayPlans: [], dueReviews: [], recentLogs: [], allLogs: [], criticalTopics: [], allTopics: [] })
+      setLoading(false)
+      return
+    }
     try {
     const today = new Date().toISOString().split('T')[0]
     const ninetyDaysAgo = subDays(new Date(), 90).toISOString().split('T')[0]
 
-    const [examsRes, plansRes, reviewsRes, logsRes, allLogsRes, criticalRes, allTopicsRes] = await Promise.all([
-      supabase.from('exams').select('*').order('is_primary', { ascending: false }).order('created_at'),
+    const [enrollRes, plansRes, reviewsRes, logsRes, allLogsRes, criticalRes, allTopicsRes, topicProgRes] = await Promise.all([
+      supabase.from('user_exams')
+        .select('is_primary, is_watching, created_at, exam:exams(*)')
+        .eq('user_id', userId)
+        .order('created_at'),
       supabase.from('calendar_plans')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .eq('planned_date', today)
         .order('order_index'),
       supabase.from('revision_schedule')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .lte('next_review', today)
         .order('next_review')
         .limit(10),
       supabase.from('study_logs')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(5),
       supabase.from('study_logs')
         .select('studied_at, duration_minutes, activity_type, topic_id, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .gte('studied_at', ninetyDaysAgo)
         .order('studied_at', { ascending: false })
         .limit(2000),
       supabase.from('revision_schedule')
         .select('*, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
         .lt('ease_factor', 1.7)
         .gt('repetitions', 0)
         .order('ease_factor', { ascending: true })
         .limit(5),
       supabase.from('topics').select('*, subject:subjects(*)'),
+      supabase.from('user_topic_progress').select('topic_id, completed_at').eq('user_id', userId),
     ])
 
-    // Calculate progress for each exam
-    const examsWithProgress = await Promise.all((examsRes.data || []).map(async exam => {
+    const completedTopics = new Set((topicProgRes.data || []).filter((t: any) => t.completed_at).map((t: any) => t.topic_id))
+    const enrollments = (enrollRes.data || []).filter((r: any) => r.exam)
+
+    // Calculate progress for each exam (escopado ao usuário)
+    const examsWithProgress = await Promise.all(enrollments.map(async (row: any) => {
+      const exam = row.exam
       const { data: examSubjects } = await supabase
         .from('exam_subjects')
         .select('subject_id')
         .eq('exam_id', exam.id)
 
-      const subjectIds = (examSubjects || []).map(es => es.subject_id)
+      const subjectIds = (examSubjects || []).map((es: any) => es.subject_id)
 
       const { data: topics } = await supabase
         .from('topics')
-        .select('id, completed_at')
-        .in('subject_id', subjectIds.length ? subjectIds : ['none'])
+        .select('id')
+        .eq('exam_id', exam.id)
 
       const topicList = topics || []
-      const topicIds = topicList.map(t => t.id)
+      const topicIds = topicList.map((t: any) => t.id)
 
       const { data: logs } = await supabase
         .from('study_logs')
         .select('topic_id, activity_type')
+        .eq('user_id', userId)
         .in('topic_id', topicIds.length ? topicIds : ['none'])
 
       const completedByTopic: Record<string, Set<string>> = {}
@@ -106,17 +127,20 @@ export default function DashboardPage() {
         completedByTopic[log.topic_id].add(log.activity_type)
       }
 
-      const totalProgress = topicList.reduce((sum, t) => {
+      const totalProgress = topicList.reduce((sum: number, t: any) => {
         const acts = [...(completedByTopic[t.id] || [])] as any
-        return sum + getTopicCompletionPercent(acts, t.completed_at)
+        return sum + getTopicCompletionPercent(acts, completedTopics.has(t.id) ? '1' : null)
       }, 0)
 
       return {
         ...exam,
+        is_primary: row.is_primary,
+        is_watching: row.is_watching,
         subject_count: subjectIds.length,
         progress: topicIds.length ? Math.round(totalProgress / topicIds.length) : 0,
       }
     }))
+    examsWithProgress.sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
 
     setData({
       exams: examsWithProgress,
