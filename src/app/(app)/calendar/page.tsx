@@ -140,7 +140,12 @@ export default function CalendarPage() {
         },
         body: JSON.stringify(prefs),
       })
-      const data = await res.json()
+      // Resposta pode não ser JSON (ex.: timeout do servidor) — lê com cuidado.
+      const raw = await res.text()
+      let data: any = {}
+      try { data = raw ? JSON.parse(raw) : {} } catch {
+        data = { error: 'O servidor demorou para responder. Tente de novo (ou reduza os dias do cronograma).' }
+      }
       if (!res.ok) {
         setGenError(data.error || 'Erro ao gerar cronograma')
         setGenerating(false)
