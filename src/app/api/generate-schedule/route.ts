@@ -46,17 +46,36 @@ export async function POST(req: NextRequest) {
     const completedMode: 'skip' | 'review' | 'restudy' =
       prefs.completedSubjectsMode ?? (prefs.includeCompletedSubjects ? 'review' : 'skip')
 
+    // Cliente autenticado com o token do usuário (vem do header). Assim o RLS
+    // libera SÓ os dados pessoais dele, e auth.uid() funciona.
+    const token = (req.headers.get('Authorization') || '').replace('Bearer ', '')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
     )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Sessão expirada. Faça login novamente.' }, { status: 401 })
+    }
+    const userId = user.id
 
-    const [examsRes, esRes, topicsRes, existingRes, revisionsRes] = await Promise.all([
-      supabase.from('exams').select('*').eq('is_watching', false).order('is_primary', { ascending: false }),
-      supabase.from('exam_subjects').select('exam_id, subject_id, completed_at'),
-      supabase.from('topics').select('*, subject:subjects(*), study_logs(activity_type)'),
-      supabase.from('calendar_plans').select('planned_date, topic_id, activity_type').gte('planned_date', new Date().toISOString().split('T')[0]),
-      supabase.from('revision_schedule').select('topic_id, next_review, repetitions').lte('next_review', new Date().toISOString().split('T')[0]),
+    // Concursos em que o usuário está inscrito (is_primary/is_watching pessoais)
+    const { data: enrollments } = await supabase
+      .from('user_exams').select('exam_id, is_primary, is_watching').eq('user_id', userId)
+    const studying = (enrollments || []).filter((e: any) => !e.is_watching)
+    const studyingIds = studying.map((e: any) => e.exam_id)
+    const primaryId = studying.find((e: any) => e.is_primary)?.exam_id
+    const idsOrNone = studyingIds.length ? studyingIds : ['none']
+
+    const [examsRes, esRes, topicsRes, tpRes, spRes, existingRes, revisionsRes] = await Promise.all([
+      supabase.from('exams').select('*').in('id', idsOrNone),
+      supabase.from('exam_subjects').select('id, exam_id, subject_id').in('exam_id', idsOrNone),
+      supabase.from('topics').select('*, subject:subjects(*), study_logs(activity_type)').in('exam_id', idsOrNone),
+      supabase.from('user_topic_progress').select('topic_id, completed_at').eq('user_id', userId),
+      supabase.from('user_subject_progress').select('exam_subject_id, completed_at').eq('user_id', userId),
+      supabase.from('calendar_plans').select('planned_date, topic_id, activity_type').eq('user_id', userId).gte('planned_date', new Date().toISOString().split('T')[0]),
+      supabase.from('revision_schedule').select('topic_id, next_review, repetitions').eq('user_id', userId).lte('next_review', new Date().toISOString().split('T')[0]),
     ])
 
     const exams = examsRes.data || []
@@ -64,29 +83,30 @@ export async function POST(req: NextRequest) {
     const topics = topicsRes.data || []
     const existing = existingRes.data || []
     const overdueReviews = revisionsRes.data || []
+    const completedTopicSet = new Set((tpRes.data || []).filter((r: any) => r.completed_at).map((r: any) => r.topic_id))
+    const completedSubjSet = new Set((spRes.data || []).filter((r: any) => r.completed_at).map((r: any) => r.exam_subject_id))
 
     if (topics.length === 0) {
       return NextResponse.json({ error: 'Nenhum tópico cadastrado ainda' }, { status: 400 })
     }
 
-    // Filter exams by focus preference
+    // Filter exams by focus preference (escopado aos concursos do usuário)
     let targetExamIds: Set<string>
     if (prefs.focus === 'primary') {
-      const primary = exams.find((e: any) => e.is_primary)
-      targetExamIds = new Set(primary ? [primary.id] : exams.map((e: any) => e.id))
+      targetExamIds = new Set(primaryId ? [primaryId] : studyingIds)
     } else if (prefs.focus === 'specific' && prefs.specificExamIds?.length) {
       targetExamIds = new Set(prefs.specificExamIds)
     } else {
-      targetExamIds = new Set(exams.map((e: any) => e.id))
+      targetExamIds = new Set(studyingIds)
     }
 
-    // Build map: subject_id -> { completed_at, exam_ids }
+    // Build map: subject_id -> { completed, exam_ids }
     const subjectInfo: Record<string, { completed: boolean; examIds: string[] }> = {}
     for (const es of examSubjects as any[]) {
       if (!targetExamIds.has(es.exam_id)) continue
       if (!subjectInfo[es.subject_id]) subjectInfo[es.subject_id] = { completed: false, examIds: [] }
       subjectInfo[es.subject_id].examIds.push(es.exam_id)
-      if (es.completed_at) subjectInfo[es.subject_id].completed = true
+      if (completedSubjSet.has(es.id)) subjectInfo[es.subject_id].completed = true
     }
 
     // Categorize topics
@@ -97,7 +117,7 @@ export async function POST(req: NextRequest) {
     for (const t of topics as any[]) {
       const info = subjectInfo[t.subject_id]
       if (!info) continue
-      const topicIsComplete = !!t.completed_at
+      const topicIsComplete = completedTopicSet.has(t.id)
       const subjectIsComplete = info.completed
       const done = new Set((t.study_logs || []).map((l: any) => l.activity_type))
       const remaining = allActivities.filter(a => !done.has(a))
