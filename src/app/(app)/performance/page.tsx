@@ -130,7 +130,7 @@ export default function PerformancePage() {
 
           {/* Pontos de atenção */}
           {weakest.length > 0 && (
-            <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--danger)', boxShadow: 'var(--shadow-sm)' }}>
+            <div className="ef-card p-5" style={{ borderColor: 'var(--danger)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle size={16} style={{ color: 'var(--danger)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Matérias para reforçar</h3>

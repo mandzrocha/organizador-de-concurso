@@ -136,8 +136,10 @@ export default function NewsPage() {
       )}
 
       {!loading && filtered.length === 0 && !error && (
-        <div className="rounded-2xl border p-10 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <Newspaper size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
+        <div className="ef-card p-10 flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+            <Newspaper size={26} strokeWidth={1.5} />
+          </div>
           <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>
             {search ? 'Nenhuma notícia encontrada com esse termo.' : 'Nenhuma notícia disponível agora.'}
           </p>
@@ -150,7 +152,7 @@ export default function NewsPage() {
           try { date = new Date(item.pubDate) } catch {}
           const isValidDate = date && !isNaN(date.getTime())
           return (
-            <article key={i} className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+            <article key={i} className="ef-card p-5">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>

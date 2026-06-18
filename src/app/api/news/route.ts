@@ -22,15 +22,24 @@ function extractTag(block: string, tag: string): string {
   return m ? m[1].trim() : ''
 }
 
+// Entidades nomeadas mais comuns em feeds (traço, aspas curvas, reticências…)
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  ndash: '–', mdash: '—', hellip: '…', laquo: '«', raquo: '»',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', deg: '°', eacute: 'é',
+}
+
+function decodeEntities(s: string): string {
+  return s
+    // numéricas decimais (&#8211;) e hexadecimais (&#x2013;)
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    // nomeadas
+    .replace(/&([a-z]+);/gi, (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
+}
+
 function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+  return decodeEntities(html.replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim()
 }

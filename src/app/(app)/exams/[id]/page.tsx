@@ -443,7 +443,7 @@ export default function ExamDetailPage() {
       </div>
 
       {/* Progress overview */}
-      <div className="rounded-2xl border p-6 grid grid-cols-3 gap-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+      <div className="ef-card p-6 grid grid-cols-3 gap-6">
         <div>
           <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Progresso geral</p>
           <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{overallPercent}<span className="text-lg" style={{ color: 'var(--text-muted)' }}>%</span></p>
@@ -519,9 +519,11 @@ export default function ExamDetailPage() {
         )}
 
         {subjects.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
-            <BookMarked size={40} strokeWidth={1.25} className="mx-auto mb-2" style={{ color: 'var(--text-subtle)', opacity: 0.6 }} />
-            <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma matéria adicionada ainda.</p>
+          <div className="flex flex-col items-center justify-center py-16 rounded-2xl border border-dashed text-center" style={{ borderColor: 'var(--border)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+              <BookMarked size={26} strokeWidth={1.5} />
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Nenhuma matéria adicionada ainda.</p>
           </div>
         ) : visibleSubjects.length === 0 ? (
           <div className="text-center py-12 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
