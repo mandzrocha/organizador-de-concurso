@@ -288,8 +288,10 @@ export default function ReviewsPage() {
           )}
 
           {overdue.length === 0 && dueToday.length === 0 && (
-            <div className="rounded-2xl border p-10 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-              <PartyPopper size={40} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--success)' }} />
+            <div className="ef-card p-10 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
+                <PartyPopper size={30} strokeWidth={1.5} />
+              </div>
               <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>Nenhuma revisão pendente!</p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Você está em dia. Continue estudando para criar novas revisões.</p>
             </div>
@@ -301,7 +303,7 @@ export default function ReviewsPage() {
       {tab === 'upcoming' && (
         <div className="space-y-2">
           {upcoming.length === 0 ? (
-            <div className="rounded-2xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-8 text-center">
               <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma revisão futura agendada.</p>
             </div>
           ) : (
@@ -314,7 +316,7 @@ export default function ReviewsPage() {
       {tab === 'history' && (
         <div className="space-y-2">
           {recentReviews.length === 0 ? (
-            <div className="rounded-2xl border p-8 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-8 text-center">
               <p className="text-sm" style={{ color: 'var(--text-subtle)' }}>Nenhuma revisão feita ainda.</p>
             </div>
           ) : (
@@ -344,19 +346,19 @@ export default function ReviewsPage() {
       {tab === 'stats' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-4">
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Tópicos em revisão</p>
               <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.total}</p>
             </div>
-            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-4">
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Revisões nesta semana</p>
               <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.reviewedThisWeek}</p>
             </div>
-            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-4">
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Intervalo médio</p>
               <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{stats.avgInterval} dias</p>
             </div>
-            <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-4">
               <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Bem fixados</p>
               <p className="text-2xl font-bold mt-1" style={{ color: 'var(--success)' }}>{stats.mastered.length}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>5+ revisões com dificuldade baixa</p>

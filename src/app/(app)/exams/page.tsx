@@ -140,11 +140,14 @@ export default function ExamsPage() {
       </div>
 
       {exams.length === 0 ? (
-        <div className="text-center py-20">
-          <ClipboardList size={48} strokeWidth={1.25} className="mx-auto mb-3" style={{ color: 'var(--text-subtle)' }} />
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Nenhum concurso cadastrado ainda.</p>
-          <Link href="/exams/new" className="px-4 py-2 rounded-lg text-sm font-medium inline-block" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
-            Adicionar concurso
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+            <ClipboardList size={30} strokeWidth={1.5} />
+          </div>
+          <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>Nenhum concurso cadastrado</h2>
+          <p className="text-sm mb-6 max-w-xs" style={{ color: 'var(--text-muted)' }}>Adicione seu primeiro concurso com o edital em PDF para começar.</p>
+          <Link href="/exams/new" className="px-5 py-2.5 rounded-lg text-sm font-medium inline-flex items-center gap-1.5" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
+            <Plus size={14} strokeWidth={2.5} /> Adicionar concurso
           </Link>
         </div>
       ) : (
@@ -208,8 +211,7 @@ function StudyingExamCard({ exam, onSetPrimary, onDelete }: { exam: ExamWithStat
   return (
     <Link
       href={`/exams/${exam.id}`}
-      className="rounded-xl border overflow-hidden block ef-hover-lift"
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
+      className="ef-card ef-hover-lift overflow-hidden block"
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
@@ -294,7 +296,7 @@ function WatchingExamCard({ exam, onPromote, onDelete }: { exam: ExamWithStats; 
   return (
     <Link
       href={`/exams/${exam.id}/edit`}
-      className="rounded-xl border overflow-hidden block ef-hover-lift"
+      className="rounded-2xl border overflow-hidden block ef-hover-lift"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)', borderStyle: 'dashed' }}
     >
       <div className="p-4 flex items-center gap-4">
