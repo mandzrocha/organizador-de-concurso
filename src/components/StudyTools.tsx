@@ -371,12 +371,23 @@ function QuickLogModal({ topics, onClose, onSaved }: {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    if (!q) return topics.slice(0, 12)
+    if (!q) return topics
     return topics.filter(t =>
       t.name.toLowerCase().includes(q) ||
       t.subject?.name.toLowerCase().includes(q)
-    ).slice(0, 12)
+    )
   }, [topics, search])
+
+  // Agrupa por matéria para facilitar achar (com cabeçalho por matéria)
+  const grouped = useMemo(() => {
+    const map = new Map<string, { subject?: Subject; topics: (Topic & { subject: Subject })[] }>()
+    for (const t of filtered) {
+      const sid = t.subject?.id || 'none'
+      if (!map.has(sid)) map.set(sid, { subject: t.subject, topics: [] })
+      map.get(sid)!.topics.push(t)
+    }
+    return [...map.values()].sort((a, b) => (a.subject?.name || '').localeCompare(b.subject?.name || ''))
+  }, [filtered])
 
   const totalNum = parseInt(total) || 0
   const correctNum = parseInt(correct) || 0
@@ -440,28 +451,42 @@ function QuickLogModal({ topics, onClose, onSaved }: {
         <div className="p-5 space-y-4">
           <div>
             <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>O que você estudou?</label>
-            <input
-              type="text"
-              placeholder="Buscar tópico..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              autoFocus
-            />
             {!selectedTopic && (
-              <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
-                {filtered.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => { setTopicId(t.id); setSearch('') }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-hover)] flex items-center gap-2"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: t.subject?.color }} />
-                    <span className="flex-1 truncate" style={{ color: 'var(--text)' }}>{t.name}</span>
-                    <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>{t.subject?.name}</span>
-                  </button>
-                ))}
-                {filtered.length === 0 && <p className="px-3 py-3 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico encontrado</p>}
-              </div>
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar matéria ou tópico..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  autoFocus
+                />
+                <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                  {grouped.length === 0 ? (
+                    <p className="px-3 py-4 text-xs text-center" style={{ color: 'var(--text-subtle)' }}>Nenhum tópico encontrado</p>
+                  ) : grouped.map(g => (
+                    <div key={g.subject?.id || 'none'}>
+                      <div
+                        className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5 sticky top-0 z-10"
+                        style={{ background: 'var(--surface-soft)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: g.subject?.color }} />
+                        {g.subject?.name || 'Sem matéria'}
+                        <span className="ml-auto font-normal lowercase" style={{ color: 'var(--text-subtle)' }}>{g.topics.length}</span>
+                      </div>
+                      {g.topics.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => { setTopicId(t.id); setSearch('') }}
+                          className="w-full text-left pl-6 pr-3 py-2 text-sm hover:bg-[var(--surface-hover)] flex items-center gap-2"
+                          style={{ color: 'var(--text)' }}
+                        >
+                          <span className="flex-1 truncate">{t.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
             {selectedTopic && (
               <div className="mt-2 px-3 py-2 rounded-lg flex items-center gap-2" style={{ background: 'var(--primary-soft)' }}>
