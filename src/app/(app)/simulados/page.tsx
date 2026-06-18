@@ -9,11 +9,12 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged, emitDataChanged } from '@/lib/events'
 import { Exam, MockExam } from '@/lib/types'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, X, Trophy, Target, TrendingUp, Trash2, Pencil, Calendar, AlertTriangle } from 'lucide-react'
 
 const PASS = 70 // linha de corte de "bom"
+type Period = 30 | 90 | 180 | 'all'
 
 export default function SimuladosPage() {
   const supabase = createClient()
@@ -25,6 +26,8 @@ export default function SimuladosPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<MockExam | null>(null)
   const [needsSetup, setNeedsSetup] = useState(false)
+  const [examFilter, setExamFilter] = useState<string>('all')
+  const [period, setPeriod] = useState<Period>('all')
 
   useEffect(() => { load() }, [])
   useDataChanged(() => { load() })
@@ -59,18 +62,28 @@ export default function SimuladosPage() {
     load()
   }
 
+  // Aplica filtros de período e concurso
+  const filtered = useMemo(() => {
+    const cutoff = period === 'all' ? null : subDays(new Date(), period).toISOString().split('T')[0]
+    return items.filter(i => {
+      if (cutoff && i.taken_at < cutoff) return false
+      if (examFilter !== 'all' && i.exam_id !== examFilter) return false
+      return true
+    })
+  }, [items, period, examFilter])
+
   // Métricas
   const stats = useMemo(() => {
-    if (items.length === 0) return null
-    const totalQ = items.reduce((s, i) => s + i.total_questions, 0)
-    const totalC = items.reduce((s, i) => s + i.correct_answers, 0)
+    if (filtered.length === 0) return null
+    const totalQ = filtered.reduce((s, i) => s + i.total_questions, 0)
+    const totalC = filtered.reduce((s, i) => s + i.correct_answers, 0)
     const avg = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0
-    const best = Math.max(...items.map(i => i.total_questions > 0 ? Math.round((i.correct_answers / i.total_questions) * 100) : 0))
-    return { count: items.length, avg, best, totalQ }
-  }, [items])
+    const best = Math.max(...filtered.map(i => i.total_questions > 0 ? Math.round((i.correct_answers / i.total_questions) * 100) : 0))
+    return { count: filtered.length, avg, best, totalQ }
+  }, [filtered])
 
   // Evolução (ordem cronológica)
-  const chrono = useMemo(() => [...items].reverse(), [items])
+  const chrono = useMemo(() => [...filtered].reverse(), [filtered])
 
   if (loading) return <PageSkeleton variant="list" />
 
@@ -118,6 +131,16 @@ export default function SimuladosPage() {
         </div>
       ) : (
         <>
+          {items.length > 1 && (
+            <FilterBar exams={exams} examFilter={examFilter} setExamFilter={setExamFilter} period={period} setPeriod={setPeriod} />
+          )}
+
+          {filtered.length === 0 ? (
+            <div className="ef-card p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              Nenhum simulado com esses filtros.
+            </div>
+          ) : (
+          <div className="space-y-6">
           {/* Métricas */}
           {stats && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -132,7 +155,7 @@ export default function SimuladosPage() {
 
           {/* Lista */}
           <div className="space-y-2">
-            {items.map(item => {
+            {filtered.map(item => {
               const pct = item.total_questions > 0 ? Math.round((item.correct_answers / item.total_questions) * 100) : 0
               const color = pct >= 85 ? 'var(--success)' : pct >= PASS ? 'var(--primary)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)'
               return (
@@ -162,6 +185,8 @@ export default function SimuladosPage() {
               )
             })}
           </div>
+          </div>
+          )}
         </>
       )}
 
@@ -172,6 +197,42 @@ export default function SimuladosPage() {
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); emitDataChanged(); load() }}
         />
+      )}
+    </div>
+  )
+}
+
+function FilterBar({ exams, examFilter, setExamFilter, period, setPeriod }: {
+  exams: Exam[]
+  examFilter: string
+  setExamFilter: (v: string) => void
+  period: Period
+  setPeriod: (v: Period) => void
+}) {
+  const periods: { v: Period; label: string }[] = [
+    { v: 30, label: '30 dias' }, { v: 90, label: '90 dias' }, { v: 180, label: '6 meses' }, { v: 'all', label: 'Tudo' },
+  ]
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'var(--surface-hover)' }}>
+        {periods.map(p => (
+          <button
+            key={String(p.v)}
+            onClick={() => setPeriod(p.v)}
+            className="text-xs px-2.5 py-1 rounded-md transition-colors"
+            style={period === p.v
+              ? { background: 'var(--surface)', color: 'var(--text)', boxShadow: 'var(--shadow-sm)', fontWeight: 600 }
+              : { color: 'var(--text-muted)' }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {exams.length > 1 && (
+        <select value={examFilter} onChange={e => setExamFilter(e.target.value)} style={{ width: 'auto', minWidth: 160 }}>
+          <option value="all">Todos os concursos</option>
+          {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+        </select>
       )}
     </div>
   )

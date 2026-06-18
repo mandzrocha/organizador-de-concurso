@@ -7,7 +7,7 @@ import { getUserId } from '@/lib/auth'
 import { useDataChanged } from '@/lib/events'
 import { PageSkeleton } from '@/components/Skeleton'
 import { Subject, Topic } from '@/lib/types'
-import { format, parseISO, startOfWeek, differenceInCalendarWeeks } from 'date-fns'
+import { format, parseISO, startOfWeek, differenceInCalendarWeeks, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, PenLine, BarChart3 } from 'lucide-react'
 
@@ -15,14 +15,18 @@ interface QLog {
   total_questions: number
   correct_answers: number
   studied_at: string
-  topic: (Topic & { subject: Subject }) | null
+  topic: (Topic & { subject: Subject; exam_id: string | null }) | null
 }
 
 const PASS = 70 // linha de corte de "bom" (% de acerto)
+type Period = 7 | 30 | 90 | 'all'
 
 export default function PerformancePage() {
   const supabase = createClient()
   const [logs, setLogs] = useState<QLog[]>([])
+  const [exams, setExams] = useState<{ id: string; name: string }[]>([])
+  const [examFilter, setExamFilter] = useState<string>('all')
+  const [period, setPeriod] = useState<Period>('all')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [])
@@ -32,29 +36,43 @@ export default function PerformancePage() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
     const userId = await getUserId(supabase)
     if (!userId) { setLoading(false); return }
-    const { data } = await supabase
-      .from('study_logs')
-      .select('total_questions, correct_answers, studied_at, topic:topics(*, subject:subjects(*))')
-      .eq('user_id', userId)
-      .not('total_questions', 'is', null)
-      .gt('total_questions', 0)
-      .order('studied_at', { ascending: true })
-      .limit(3000)
-    setLogs((data || []) as any)
+    const [logsRes, enrollRes] = await Promise.all([
+      supabase
+        .from('study_logs')
+        .select('total_questions, correct_answers, studied_at, topic:topics(*, subject:subjects(*))')
+        .eq('user_id', userId)
+        .not('total_questions', 'is', null)
+        .gt('total_questions', 0)
+        .order('studied_at', { ascending: true })
+        .limit(3000),
+      supabase.from('user_exams').select('exam:exams(id, name)').eq('user_id', userId),
+    ])
+    setLogs((logsRes.data || []) as any)
+    setExams(((enrollRes.data || []).map((r: any) => r.exam).filter(Boolean)) as any)
     setLoading(false)
   }
+
+  // Aplica filtros de período e concurso antes de qualquer cálculo
+  const filtered = useMemo(() => {
+    const cutoff = period === 'all' ? null : subDays(new Date(), period).toISOString().split('T')[0]
+    return logs.filter(l => {
+      if (cutoff && l.studied_at < cutoff) return false
+      if (examFilter !== 'all' && l.topic?.exam_id !== examFilter) return false
+      return true
+    })
+  }, [logs, period, examFilter])
 
   // Totais gerais
   const totals = useMemo(() => {
     let q = 0, c = 0
-    for (const l of logs) { q += l.total_questions || 0; c += l.correct_answers || 0 }
+    for (const l of filtered) { q += l.total_questions || 0; c += l.correct_answers || 0 }
     return { questions: q, correct: c, pct: q > 0 ? Math.round((c / q) * 100) : 0 }
-  }, [logs])
+  }, [filtered])
 
   // Por matéria
   const bySubject = useMemo(() => {
     const map = new Map<string, { subject: Subject; q: number; c: number }>()
-    for (const l of logs) {
+    for (const l of filtered) {
       const s = l.topic?.subject
       if (!s) continue
       const cur = map.get(s.id) || { subject: s, q: 0, c: 0 }
@@ -65,7 +83,7 @@ export default function PerformancePage() {
     return [...map.values()]
       .map(x => ({ ...x, pct: x.q > 0 ? Math.round((x.c / x.q) * 100) : 0 }))
       .sort((a, b) => b.q - a.q)
-  }, [logs])
+  }, [filtered])
 
   const weakest = useMemo(
     () => bySubject.filter(s => s.q >= 5 && s.pct < PASS).sort((a, b) => a.pct - b.pct),
@@ -74,9 +92,9 @@ export default function PerformancePage() {
 
   // Evolução por semana (% de acerto)
   const weekly = useMemo(() => {
-    if (logs.length === 0) return [] as { label: string; pct: number; q: number }[]
+    if (filtered.length === 0) return [] as { label: string; pct: number; q: number }[]
     const map = new Map<string, { q: number; c: number; date: Date }>()
-    for (const l of logs) {
+    for (const l of filtered) {
       const d = startOfWeek(parseISO(l.studied_at), { weekStartsOn: 1 })
       const key = d.toISOString().split('T')[0]
       const cur = map.get(key) || { q: 0, c: 0, date: d }
@@ -111,6 +129,13 @@ export default function PerformancePage() {
         </div>
       ) : (
         <>
+          <FilterBar exams={exams} examFilter={examFilter} setExamFilter={setExamFilter} period={period} setPeriod={setPeriod} />
+          {filtered.length === 0 ? (
+            <div className="ef-card p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              Nenhuma questão registrada com esses filtros.
+            </div>
+          ) : (
+          <>
           {/* Métricas grandes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricCard icon={<PenLine size={18} />} label="Questões resolvidas" value={totals.questions.toLocaleString('pt-BR')} accent="var(--primary)" soft="var(--primary-soft)" />
@@ -176,7 +201,45 @@ export default function PerformancePage() {
               })}
             </div>
           </div>
+          </>
+          )}
         </>
+      )}
+    </div>
+  )
+}
+
+function FilterBar({ exams, examFilter, setExamFilter, period, setPeriod }: {
+  exams: { id: string; name: string }[]
+  examFilter: string
+  setExamFilter: (v: string) => void
+  period: Period
+  setPeriod: (v: Period) => void
+}) {
+  const periods: { v: Period; label: string }[] = [
+    { v: 7, label: '7 dias' }, { v: 30, label: '30 dias' }, { v: 90, label: '90 dias' }, { v: 'all', label: 'Tudo' },
+  ]
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'var(--surface-hover)' }}>
+        {periods.map(p => (
+          <button
+            key={String(p.v)}
+            onClick={() => setPeriod(p.v)}
+            className="text-xs px-2.5 py-1 rounded-md transition-colors"
+            style={period === p.v
+              ? { background: 'var(--surface)', color: 'var(--text)', boxShadow: 'var(--shadow-sm)', fontWeight: 600 }
+              : { color: 'var(--text-muted)' }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {exams.length > 1 && (
+        <select value={examFilter} onChange={e => setExamFilter(e.target.value)} style={{ width: 'auto', minWidth: 160 }}>
+          <option value="all">Todos os concursos</option>
+          {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+        </select>
       )}
     </div>
   )
