@@ -601,7 +601,7 @@ function ReviewModal({ rev, saving, onCancel, onSubmit }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onCancel()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onCancel()}>
       <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
         <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <p className="text-xs mb-0.5 inline-flex items-center gap-1.5" style={{ color: 'var(--primary)' }}><RotateCw size={11} /> Revisar</p>
