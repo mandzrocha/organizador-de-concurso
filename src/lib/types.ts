@@ -112,6 +112,16 @@ export interface MockExam {
   exam?: Exam | null
 }
 
+export interface ErrorNote {
+  id: string
+  user_id: string
+  topic_id: string | null
+  content: string
+  resolved: boolean
+  created_at: string
+  topic?: (Topic & { subject?: Subject }) | null
+}
+
 export interface TopicProgress {
   topic: Topic
   logs: StudyLog[]
