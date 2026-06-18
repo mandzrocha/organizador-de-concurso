@@ -34,12 +34,12 @@
 
 /* ========== LIGHT ========== */
 [data-theme="light"] {
-  --bg: #fafaff;
+  --bg: #eef0f4;            /* cinza claro — dá contraste com os cards brancos */
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #f7f5ff;
-  --surface-soft: #faf9ff;
-  --border: #ebe9f5;
+  --surface-hover: #f4f3fa;
+  --surface-soft: #f7f7fb;
+  --border: #e4e3ee;
   --border-strong: #d8d4ed;
 
   --text: #1a1530;
@@ -90,7 +90,8 @@ body {
 }
 :where(a, button):focus:not(:focus-visible) { outline: none; }
 
-input, textarea, select {
+/* Campos de texto (NÃO inclui checkbox/radio — eles têm estilo próprio abaixo) */
+input:not([type="checkbox"]):not([type="radio"]), textarea, select {
   background: var(--surface-hover);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -101,12 +102,21 @@ input, textarea, select {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-input:focus, textarea:focus, select:focus {
+input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 input::placeholder, textarea::placeholder { color: var(--text-subtle); }
+
+/* Checkbox e radio: on-brand, tamanho fixo (sem o estilo de campo de texto) */
+input[type="checkbox"], input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-strong);
+  cursor: pointer;
+  flex-shrink: 0;
+}
 
 button { cursor: pointer; transition: all 0.15s ease; }
 
