@@ -300,7 +300,7 @@ export default function NewExamPage() {
 
       {/* Step 1: Info */}
       {step === 'info' && (
-        <div className="rounded-xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-6 space-y-4">
           {/* Watching toggle */}
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -433,7 +433,7 @@ export default function NewExamPage() {
 
       {/* Step 2: Upload Edital */}
       {step === 'edital' && (
-        <div className="rounded-xl border p-6 space-y-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-6 space-y-5">
           <div>
             <h2 className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Edital — PDF ou Fotos</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -530,7 +530,7 @@ export default function NewExamPage() {
       {/* Step 3: Review extracted subjects */}
       {step === 'review' && (
         <div className="space-y-4">
-          <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="ef-card p-5">
             <h2 className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Matérias extraídas do edital</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Revise e edite as matérias e tópicos antes de salvar. Matérias marcadas como "compartilhadas" são reaproveitadas entre concursos.

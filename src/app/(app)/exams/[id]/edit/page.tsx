@@ -355,7 +355,7 @@ export default function EditExamPage() {
 
       {/* Tab: Info */}
       {tab === 'info' && (
-        <div className="rounded-xl border p-6 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-6 space-y-4">
           {/* Watching/Studying toggle */}
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -509,7 +509,7 @@ export default function EditExamPage() {
 
       {tab === 'edital' && !form.is_watching && subjectCount > 0 && (
         <div className="space-y-4">
-          <div className="rounded-xl border p-5 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="ef-card p-5 space-y-4">
             <div>
               <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>Novo edital publicado?</h2>
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -587,7 +587,7 @@ function WatchingEditalFlow({
   if (extracted.length > 0) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-5">
           <h2 className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Matérias extraídas do edital</h2>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Revise e edite. Você pode importar mantendo o concurso "de olho" ou já promover para "estudando".
@@ -664,7 +664,7 @@ function WatchingEditalFlow({
   }
 
   return (
-    <div className="rounded-xl border p-5 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+    <div className="ef-card p-5 space-y-4">
       <div>
         <h2 className="text-sm font-medium" style={{ color: 'var(--text)' }}>Anexar edital deste concurso</h2>
         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -755,7 +755,7 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border p-4 grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+      <div className="ef-card p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SummaryChip label="Matérias novas" value={summary.newSubjects} color="var(--success)" />
         <SummaryChip label="Matérias removidas" value={summary.removedSubjects} color="var(--danger)" />
         <SummaryChip label="Tópicos novos" value={summary.newTopics} color="var(--success)" />
@@ -763,7 +763,7 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
       </div>
 
       {!hasChanges && (
-        <div className="rounded-xl border p-6 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-6 text-center">
           <div className="text-3xl mb-2">✅</div>
           <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Nenhuma mudança detectada!</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>O novo edital tem o mesmo conteúdo programático.</p>
@@ -775,7 +775,7 @@ function DiffView({ diff, applied, applying, onApply, onReset, onGoBack }: {
       ))}
 
       {!applied && hasChanges && (
-        <div className="rounded-xl border p-4 flex items-start gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="ef-card p-4 flex items-start gap-3">
           <div className="flex-1">
             <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Aplicar alterações?</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
