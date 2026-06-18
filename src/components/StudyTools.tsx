@@ -368,15 +368,23 @@ function QuickLogModal({ topics, onClose, onSaved }: {
   const [total, setTotal] = useState('')
   const [correct, setCorrect] = useState('')
   const [saving, setSaving] = useState(false)
+  const [subjectFilter, setSubjectFilter] = useState<string>('all')
+
+  // Matérias disponíveis para o filtro
+  const subjectChips = useMemo(() => {
+    const map = new Map<string, Subject>()
+    for (const t of topics) if (t.subject) map.set(t.subject.id, t.subject)
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [topics])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    if (!q) return topics
-    return topics.filter(t =>
-      t.name.toLowerCase().includes(q) ||
-      t.subject?.name.toLowerCase().includes(q)
-    )
-  }, [topics, search])
+    return topics.filter(t => {
+      if (subjectFilter !== 'all' && t.subject?.id !== subjectFilter) return false
+      if (!q) return true
+      return t.name.toLowerCase().includes(q) || t.subject?.name.toLowerCase().includes(q)
+    })
+  }, [topics, search, subjectFilter])
 
   // Agrupa por matéria para facilitar achar (com cabeçalho por matéria)
   const grouped = useMemo(() => {
@@ -386,6 +394,7 @@ function QuickLogModal({ topics, onClose, onSaved }: {
       if (!map.has(sid)) map.set(sid, { subject: t.subject, topics: [] })
       map.get(sid)!.topics.push(t)
     }
+    for (const g of map.values()) g.topics.sort((a, b) => a.name.localeCompare(b.name))
     return [...map.values()].sort((a, b) => (a.subject?.name || '').localeCompare(b.subject?.name || ''))
   }, [filtered])
 
@@ -453,6 +462,39 @@ function QuickLogModal({ topics, onClose, onSaved }: {
             <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>O que você estudou?</label>
             {!selectedTopic && (
               <>
+                {subjectChips.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 -mx-0.5 px-0.5" style={{ scrollbarWidth: 'thin' }}>
+                    <button
+                      onClick={() => setSubjectFilter('all')}
+                      className="flex-shrink-0 text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap"
+                      style={{
+                        background: subjectFilter === 'all' ? 'var(--primary-soft)' : 'transparent',
+                        borderColor: subjectFilter === 'all' ? 'var(--primary)' : 'var(--border)',
+                        color: subjectFilter === 'all' ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      Todas
+                    </button>
+                    {subjectChips.map(s => {
+                      const active = subjectFilter === s.id
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => setSubjectFilter(active ? 'all' : s.id)}
+                          className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap"
+                          style={{
+                            background: active ? 'var(--primary-soft)' : 'transparent',
+                            borderColor: active ? 'var(--primary)' : 'var(--border)',
+                            color: active ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                          {s.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
                 <input
                   type="text"
                   placeholder="Buscar matéria ou tópico..."
