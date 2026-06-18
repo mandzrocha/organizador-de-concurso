@@ -11,7 +11,7 @@ import { useDataChanged, emitDataChanged } from '@/lib/events'
 import { Exam, MockExam } from '@/lib/types'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, X, Trophy, Target, TrendingUp, Trash2, Pencil, Calendar } from 'lucide-react'
+import { Plus, X, Trophy, Target, TrendingUp, Trash2, Pencil, Calendar, AlertTriangle } from 'lucide-react'
 
 const PASS = 70 // linha de corte de "bom"
 
@@ -24,6 +24,7 @@ export default function SimuladosPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<MockExam | null>(null)
+  const [needsSetup, setNeedsSetup] = useState(false)
 
   useEffect(() => { load() }, [])
   useDataChanged(() => { load() })
@@ -36,6 +37,8 @@ export default function SimuladosPage() {
       supabase.from('mock_exams').select('*, exam:exams(*)').eq('user_id', userId).order('taken_at', { ascending: false }),
       supabase.from('user_exams').select('exam:exams(*)').eq('user_id', userId),
     ])
+    // 404/PGRST205 = tabela ainda não criada no Supabase
+    setNeedsSetup(!!mockRes.error)
     setItems((mockRes.data || []) as any)
     setExams(((enrollRes.data || []).map((r: any) => r.exam).filter(Boolean)) as Exam[])
     setLoading(false)
@@ -49,7 +52,8 @@ export default function SimuladosPage() {
       danger: true,
     })
     if (!ok) return
-    await supabase.from('mock_exams').delete().eq('id', item.id)
+    const { error } = await supabase.from('mock_exams').delete().eq('id', item.id)
+    if (error) { toast.error('Erro ao excluir: ' + error.message); return }
     toast.success('Simulado excluído')
     emitDataChanged()
     load()
@@ -85,6 +89,19 @@ export default function SimuladosPage() {
           <Plus size={14} strokeWidth={2.5} /> Novo simulado
         </button>
       </div>
+
+      {needsSetup && (
+        <div className="rounded-2xl border p-4 flex items-start gap-3" style={{ background: 'var(--warning-soft)', borderColor: 'var(--warning)' }}>
+          <AlertTriangle size={18} style={{ color: 'var(--warning)' }} className="flex-shrink-0 mt-0.5" />
+          <div className="text-sm" style={{ color: 'var(--text)' }}>
+            <p className="font-semibold" style={{ color: 'var(--warning)' }}>Falta criar a tabela no banco</p>
+            <p className="mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Rode o arquivo <code className="px-1 rounded" style={{ background: 'var(--surface-hover)' }}>supabase-metas-simulados.sql</code> no
+              SQL Editor do Supabase (uma vez). Sem isso os simulados não são salvos.
+            </p>
+          </div>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -250,11 +267,10 @@ function MockExamForm({ exams, editing, onClose, onSaved }: {
         duration_minutes: duration ? parseInt(duration) : null,
         notes: notes.trim() || null,
       }
-      if (editing) {
-        await supabase.from('mock_exams').update(payload).eq('id', editing.id)
-      } else {
-        await supabase.from('mock_exams').insert(payload)
-      }
+      const { error } = editing
+        ? await supabase.from('mock_exams').update(payload).eq('id', editing.id)
+        : await supabase.from('mock_exams').insert(payload)
+      if (error) throw error
       toast.success(editing ? 'Simulado atualizado!' : 'Simulado registrado!')
       onSaved()
     } catch (e: any) {

@@ -155,7 +155,8 @@ function GoalsModal({ goals, onClose, onSaved }: { goals: UserGoals | null; onCl
         weekly_days: vals.weekly_days ? Math.min(7, parseInt(vals.weekly_days) || 0) || null : null,
         updated_at: new Date().toISOString(),
       }
-      await supabase.from('user_goals').upsert(payload, { onConflict: 'user_id' })
+      const { error } = await supabase.from('user_goals').upsert(payload, { onConflict: 'user_id' })
+      if (error) throw error
       toast.success('Metas atualizadas!')
       onSaved()
     } catch (e: any) {
