@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
     const model = genAI.getGenerativeModel({
       model: 'gemini-flash-latest',
-      generationConfig: { temperature: 0.3, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+      generationConfig: { temperature: 0.3, maxOutputTokens: 16384, responseMimeType: 'application/json' },
     })
 
     const overdueIds = new Set(overdueReviews.map((r: any) => r.topic_id))
@@ -223,9 +223,20 @@ Retorne APENAS um JSON válido:
     const result = await model.generateContent(prompt)
     const text = result.response.text()
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('Resposta inválida da IA')
+    if (!jsonMatch) throw new Error('A IA não retornou um cronograma. Tente de novo.')
 
-    const parsed = JSON.parse(jsonMatch[0])
+    let parsed: { plans?: any[] }
+    try {
+      parsed = JSON.parse(jsonMatch[0])
+    } catch {
+      // A IA às vezes devolve JSON truncado/malformado. Recupera os planos
+      // válidos um a um (cada plano é um objeto simples, sem aninhamento).
+      const objs = jsonMatch[0].match(/\{[^{}]*\}/g) || []
+      const plans: any[] = []
+      for (const o of objs) { try { plans.push(JSON.parse(o)) } catch { /* ignora plano quebrado */ } }
+      if (plans.length === 0) throw new Error('A IA retornou uma resposta inválida. Tente gerar de novo.')
+      parsed = { plans }
+    }
 
     // Validate and filter generated plans:
     // - topic must exist in our candidate set
