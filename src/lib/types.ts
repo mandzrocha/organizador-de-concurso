@@ -88,6 +88,30 @@ export interface CalendarPlan {
   subject?: Subject | null
 }
 
+export interface UserGoals {
+  user_id: string
+  weekly_minutes: number | null
+  weekly_questions: number | null
+  weekly_topics: number | null
+  weekly_days: number | null
+  updated_at: string
+}
+
+export interface MockExam {
+  id: string
+  user_id: string
+  exam_id: string | null
+  title: string
+  banca: string | null
+  taken_at: string
+  total_questions: number
+  correct_answers: number
+  duration_minutes: number | null
+  notes: string | null
+  created_at: string
+  exam?: Exam | null
+}
+
 export interface TopicProgress {
   topic: Topic
   logs: StudyLog[]

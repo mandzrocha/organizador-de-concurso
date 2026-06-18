@@ -17,6 +17,7 @@ import {
   AlertCircle, CalendarClock, Timer, Newspaper, ExternalLink,
 } from 'lucide-react'
 import { ActivityIcon } from '@/lib/activity-icons'
+import { GoalsCard } from '@/components/GoalsCard'
 
 interface DashboardData {
   exams: (Exam & { subject_count: number; progress: number })[]
@@ -380,6 +381,8 @@ export default function DashboardPage() {
       {data?.exams.length === 0 ? (
         <EmptyState />
       ) : (
+        <>
+        <GoalsCard />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column */}
           <div className="lg:col-span-2 space-y-6">
@@ -576,6 +579,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* Horas por dia */}
