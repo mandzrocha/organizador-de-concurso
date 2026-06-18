@@ -338,7 +338,7 @@ export default function DashboardPage() {
 
       {/* Próximas provas (todos os concursos com data, ordenados) */}
       {upcomingExams.length > 1 && (
-        <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="ef-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <CalendarClock size={14} style={{ color: 'var(--text-muted)' }} />
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Próximas provas</h3>
@@ -385,7 +385,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Primary exam */}
             {primaryExam && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="ef-card p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -430,7 +430,7 @@ export default function DashboardPage() {
 
             {/* Recent activity */}
             {(data?.recentLogs.length || 0) > 0 && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="ef-card p-5">
                 <h3 className="text-sm font-medium mb-4" style={{ color: 'var(--text-muted)' }}>Atividade recente</h3>
                 <div className="space-y-3">
                   {data?.recentLogs.map(log => (
@@ -454,7 +454,7 @@ export default function DashboardPage() {
           {/* Right column */}
           <div className="space-y-6">
             {/* Today's plan */}
-            <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="ef-card p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Hoje</h3>
                 <Link href="/calendar" className="text-xs" style={{ color: 'var(--primary-strong)' }}>Ver calendário</Link>
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                     <button
                       key={plan.id}
                       onClick={() => togglePlan(plan.id, plan.status)}
-                      className="w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors hover:bg-white/5"
+                      className="w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors hover:bg-[var(--surface-hover)]"
                     >
                       <div
                         className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border transition-all"
@@ -500,7 +500,7 @@ export default function DashboardPage() {
 
             {/* Due reviews */}
             {(data?.dueReviews.length || 0) > 0 && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="ef-card p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
                     Revisões pendentes
@@ -526,7 +526,7 @@ export default function DashboardPage() {
 
             {/* Other exams */}
             {otherExams.length > 0 && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="ef-card p-5">
                 <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>Outros concursos</h3>
                 <div className="space-y-1">
                   {otherExams.map(exam => (
@@ -549,7 +549,7 @@ export default function DashboardPage() {
 
             {/* Tópicos críticos */}
             {(data?.criticalTopics.length || 0) > 0 && (
-              <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--danger)' }}>
+              <div className="ef-card p-5" style={{ borderColor: 'var(--danger)' }}>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium inline-flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                     <AlertCircle size={14} style={{ color: 'var(--danger)' }} /> Tópicos críticos
@@ -585,7 +585,7 @@ export default function DashboardPage() {
 
       {/* Notícias relacionadas */}
       {relatedNews.length > 0 && (
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="ef-card p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Newspaper size={15} style={{ color: 'var(--primary)' }} />
@@ -630,7 +630,9 @@ export default function DashboardPage() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <ClipboardList size={56} strokeWidth={1.25} className="mb-4" style={{ color: 'var(--text-subtle)' }} />
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+        <ClipboardList size={30} strokeWidth={1.5} />
+      </div>
       <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>Nenhum concurso cadastrado</h2>
       <p className="text-sm mb-6 max-w-xs" style={{ color: 'var(--text-muted)' }}>
         Adicione seu primeiro concurso com o edital em PDF para começar a organizar seus estudos.
@@ -664,7 +666,7 @@ function HoursPerDayChart({ days }: { days: { day: Date; minutes: number }[] }) 
   }
 
   return (
-    <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+    <div className="ef-card p-5">
       <div className="flex items-start justify-between mb-5">
         <div>
           <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Horas estudadas por dia</h2>
@@ -757,7 +759,7 @@ function SubjectTimePie({ subjects }: { subjects: { subject: Subject; minutes: n
   const totalH = Math.floor(total / 60), totalM = total % 60
 
   return (
-    <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+    <div className="ef-card p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Tempo por matéria</h2>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>

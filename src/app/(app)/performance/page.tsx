@@ -148,7 +148,7 @@ export default function PerformancePage() {
           )}
 
           {/* Acerto por matéria */}
-          <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="ef-card p-5">
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp size={16} style={{ color: 'var(--primary)' }} />
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Acerto por matéria</h3>
@@ -184,7 +184,7 @@ export default function PerformancePage() {
 
 function MetricCard({ icon, label, value, sub, accent, soft }: { icon: React.ReactNode; label: string; value: string; sub?: string; accent: string; soft: string }) {
   return (
-    <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+    <div className="ef-card p-5">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: soft, color: accent }}>{icon}</div>
       <p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--text)' }}>{value}</p>
       <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
@@ -203,7 +203,7 @@ function EvolutionChart({ weeks }: { weeks: { label: string; pct: number; q: num
   const area = `${line} L ${pts[n - 1].x.toFixed(1)} ${h - padY} L ${pts[0].x.toFixed(1)} ${h - padY} Z`
 
   return (
-    <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+    <div className="ef-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp size={16} style={{ color: 'var(--primary)' }} />
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Evolução do acerto</h3>

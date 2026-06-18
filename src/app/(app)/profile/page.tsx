@@ -127,7 +127,7 @@ export default function ProfilePage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+      <div className="ef-card p-6">
         <div className="flex items-center gap-4">
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0"
@@ -181,7 +181,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Daily chart */}
-      <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+      <div className="ef-card p-5">
         <div className="flex items-center justify-between mb-1">
           <div>
             <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Horas estudadas</h2>
@@ -242,7 +242,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Overall stats */}
-      <div className="rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+      <div className="ef-card p-5">
         <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>Seu acervo</h2>
         <div className="grid grid-cols-3 gap-6">
           <div>
