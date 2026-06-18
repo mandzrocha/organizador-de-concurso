@@ -519,6 +519,7 @@ function QuickLogModal({ topics, onClose, onSaved }: {
                         <button
                           key={t.id}
                           onClick={() => { setTopicId(t.id); setSearch('') }}
+                          title={t.name}
                           className="w-full text-left pl-6 pr-3 py-2 text-sm hover:bg-[var(--surface-hover)] flex items-center gap-2"
                           style={{ color: 'var(--text)' }}
                         >
