@@ -265,6 +265,7 @@ export default function CalendarPage() {
       {showWizard && (
         <ScheduleWizard
           exams={exams}
+          subjects={[...new Map(topics.filter(t => t.subject).map(t => [t.subject.id, { id: t.subject.id, name: t.subject.name }])).values()]}
           generating={generating}
           error={genError}
           onClose={() => setShowWizard(false)}
@@ -745,8 +746,9 @@ const WEEK_DAYS = [
 
 type ActivityKey = 'video' | 'reading' | 'exercises' | 'review'
 
-function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
+function ScheduleWizard({ exams, subjects, generating, error, onClose, onGenerate }: {
   exams: { id: string; name: string; is_primary: boolean }[]
+  subjects: { id: string; name: string }[]
   generating: boolean
   error: string
   onClose: () => void
@@ -768,6 +770,12 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
     review:    [0, 6],
   })
   const [notes, setNotes] = useState('')
+  const [maxSubjectsPerDay, setMaxSubjectsPerDay] = useState(0) // 0 = sem limite
+  const [prioritySubjectIds, setPrioritySubjectIds] = useState<string[]>([])
+
+  function togglePriority(id: string) {
+    setPrioritySubjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   function toggleDay(d: number) {
     setDaysPerWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
@@ -791,6 +799,8 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
       completedSubjectsMode: completedMode,
       prioritizeOverdueReviews: prioritizeOverdue,
       activityDays: customizeActivities ? activityDays : undefined,
+      maxSubjectsPerDay: maxSubjectsPerDay > 0 ? maxSubjectsPerDay : undefined,
+      prioritySubjectIds: prioritySubjectIds.length ? prioritySubjectIds : undefined,
       notes: notes.trim() || undefined,
     })
   }
@@ -1056,12 +1066,65 @@ function ScheduleWizard({ exams, generating, error, onClose, onGenerate }: {
                 </div>
               </div>
 
+              {/* Máximo de matérias por dia */}
+              <div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Máximo de matérias por dia</p>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Prefere focar em poucas matérias por dia? Limite a variedade.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[{ v: 1, l: '1 matéria' }, { v: 2, l: '2 matérias' }, { v: 3, l: '3 matérias' }, { v: 0, l: 'Sem limite' }].map(o => (
+                    <button
+                      key={o.v}
+                      onClick={() => setMaxSubjectsPerDay(o.v)}
+                      className="text-xs px-3 py-2 rounded-lg border transition-colors"
+                      style={{
+                        background: maxSubjectsPerDay === o.v ? 'var(--primary-soft)' : 'var(--surface-hover)',
+                        borderColor: maxSubjectsPerDay === o.v ? 'var(--primary)' : 'var(--border)',
+                        color: maxSubjectsPerDay === o.v ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Matérias prioritárias */}
+              {subjects.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                    Matérias prioritárias <span style={{ color: 'var(--text-subtle)', fontWeight: 400 }}>· opcional</span>
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>A IA agenda as marcadas primeiro e com mais frequência.</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {subjects.map(s => {
+                      const on = prioritySubjectIds.includes(s.id)
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => togglePriority(s.id)}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors"
+                          style={{
+                            background: on ? 'var(--primary-soft)' : 'transparent',
+                            borderColor: on ? 'var(--primary)' : 'var(--border)',
+                            color: on ? 'var(--primary-soft-text)' : 'var(--text-muted)',
+                          }}
+                        >
+                          {on ? '★ ' : ''}{s.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
                 <p className="font-medium mb-1">Resumo</p>
                 <p>· {daysPerWeek.length} dias/semana, {hoursPerDay}h por dia</p>
                 <p>· Cronograma de {horizonDays} dias</p>
                 <p>· Foco: {focus === 'primary' ? 'concurso principal' : focus === 'all' ? 'todos os concursos' : `${specificExamIds.length} concurso(s) selecionado(s)`}</p>
                 <p>· Concluídas: {completedMode === 'review' ? 'apenas revisar' : completedMode === 'restudy' ? 'estudar de novo' : 'não incluir'}</p>
+                {maxSubjectsPerDay > 0 && <p>· Até {maxSubjectsPerDay} matéria(s) por dia</p>}
+                {prioritySubjectIds.length > 0 && <p>· {prioritySubjectIds.length} matéria(s) prioritária(s)</p>}
                 {customizeActivities && <p>· Padrões por atividade definidos</p>}
                 {notes.trim() && <p>· Observações enviadas para a IA</p>}
               </div>

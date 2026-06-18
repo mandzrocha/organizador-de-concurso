@@ -15,6 +15,8 @@ export interface SchedulePreferences {
   // 'skip' = não incluir | 'review' = só revisão | 'restudy' = estudar do zero de novo
   completedSubjectsMode?: 'skip' | 'review' | 'restudy'
   prioritizeOverdueReviews: boolean
+  maxSubjectsPerDay?: number     // limita a variedade de matérias por dia (0/undefined = sem limite)
+  prioritySubjectIds?: string[]  // matérias a priorizar (mais cedo + mais frequência)
   startDate?: string             // YYYY-MM-DD; padrão = hoje
   // Padrões por atividade — quais dias da semana cada atividade pode acontecer
   activityDays?: {
@@ -163,6 +165,18 @@ export async function POST(req: NextRequest) {
     const overdueStudyTopics = studyTopics.filter(t => overdueIds.has(t.id))
     const overdueReviewOnly = reviewOnlyTopics.filter(t => overdueIds.has(t.id))
 
+    // Regras extras de matéria (máximo por dia + prioridade)
+    const subjectNameById = new Map<string, string>()
+    for (const t of topics as any[]) { if (t.subject) subjectNameById.set(t.subject.id, t.subject.name) }
+    const subjectRuleLines: string[] = []
+    if (prefs.maxSubjectsPerDay && prefs.maxSubjectsPerDay > 0) {
+      subjectRuleLines.push(`- Use no MÁXIMO ${prefs.maxSubjectsPerDay} matéria(s) diferente(s) por dia (concentre o estudo, não espalhe).`)
+    }
+    if (prefs.prioritySubjectIds?.length) {
+      const names = prefs.prioritySubjectIds.map(id => subjectNameById.get(id)).filter(Boolean)
+      if (names.length) subjectRuleLines.push(`- PRIORIZE estas matérias (agende-as nos primeiros dias e com mais frequência): ${names.join(', ')}.`)
+    }
+
     // Build per-activity day restrictions
     const activityDayLines: string[] = []
     if (prefs.activityDays) {
@@ -207,7 +221,7 @@ Gere um cronograma distribuindo as atividades pelos dias úteis disponíveis (${
 Diretrizes:
 - Use apenas datas da lista de dias úteis
 - Priorize matérias com mais atividades faltando
-- Varie matérias dentro de um mesmo dia (não 5 atividades da mesma matéria seguidas)
+${subjectRuleLines.length ? subjectRuleLines.join('\n') : '- Varie matérias dentro de um mesmo dia (não 5 atividades da mesma matéria seguidas)'}
 - Para tópicos de matérias CONCLUÍDAS, use apenas activity_type: "review"
 - Para tópicos em atraso, agende-os nos primeiros 3 dias
 - Não repita topic_id + activity_type no mesmo dia
