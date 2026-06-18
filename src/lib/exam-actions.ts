@@ -1,6 +1,29 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
 /**
+ * Inscreve o usuário num concurso do catálogo compartilhado (cria/atualiza a
+ * linha em user_exams). Se for marcado como foco principal, tira o foco dos
+ * outros concursos do usuário antes.
+ */
+export async function enrollUser(
+  supabase: SupabaseClient,
+  examId: string,
+  userId: string,
+  opts: { isPrimary?: boolean; isWatching?: boolean } = {},
+) {
+  const isWatching = !!opts.isWatching
+  const isPrimary = isWatching ? false : !!opts.isPrimary
+  if (isPrimary) {
+    await supabase.from('user_exams').update({ is_primary: false }).eq('user_id', userId)
+  }
+  const { error } = await supabase.from('user_exams').upsert(
+    { user_id: userId, exam_id: examId, is_primary: isPrimary, is_watching: isWatching },
+    { onConflict: 'user_id,exam_id' },
+  )
+  if (error) throw error
+}
+
+/**
  * Multiusuário: "excluir um concurso" = DESINSCREVER o usuário.
  * Remove só os dados PESSOAIS dele (logs, revisões, planos, progresso e a
  * matrícula). O catálogo compartilhado (exam, subjects, topics) permanece,

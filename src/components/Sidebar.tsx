@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight, User, LogOut, BarChart3, Trophy, NotebookPen } from 'lucide-react'
+import { LayoutDashboard, FileText, CalendarDays, RotateCw, Newspaper, Sun, Moon, ArrowLeftRight, User, LogOut, BarChart3, Trophy, NotebookPen, Library } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from '@/lib/config'
 const NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/exams',     icon: FileText,        label: 'Concursos' },
+  { href: '/biblioteca', icon: Library,        label: 'Biblioteca' },
   { href: '/calendar',  icon: CalendarDays,    label: 'Calendário' },
   { href: '/reviews',   icon: RotateCw,        label: 'Revisões' },
   { href: '/performance', icon: BarChart3,     label: 'Desempenho' },
