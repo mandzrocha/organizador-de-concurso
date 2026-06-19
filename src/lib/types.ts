@@ -10,8 +10,39 @@ export interface Exam {
   is_watching: boolean
   edital_url: string | null
   description: string | null
+  uf: string | null          // sigla do estado (ex.: SP); null = nacional
+  category: string | null    // categoria/área (ver EXAM_CATEGORIES)
   created_at: string
   updated_at: string
+}
+
+// Categorias/áreas dos concursos (usadas nos filtros da Biblioteca)
+export const EXAM_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'federal',     label: 'Federais' },
+  { key: 'militar',     label: 'Militar' },
+  { key: 'tribunais',   label: 'Tribunais' },
+  { key: 'fiscal',      label: 'Fiscal' },
+  { key: 'controle',    label: 'Controle' },
+  { key: 'bancario',    label: 'Bancos e estatais' },
+  { key: 'seguranca',   label: 'Segurança' },
+  { key: 'agencias',    label: 'Agências' },
+  { key: 'legislativo', label: 'Legislativo' },
+  { key: 'transito',    label: 'Trânsito' },
+  { key: 'municipal',   label: 'Municipal' },
+]
+
+export const EXAM_CATEGORY_LABELS: Record<string, string> =
+  Object.fromEntries(EXAM_CATEGORIES.map(c => [c.key, c.label]))
+
+// Estados (UF -> nome) para filtros e seed
+export const UF_NAMES: Record<string, string> = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia',
+  CE: 'Ceará', DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás',
+  MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais',
+  PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco', PI: 'Piauí',
+  RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte', RS: 'Rio Grande do Sul',
+  RO: 'Rondônia', RR: 'Roraima', SC: 'Santa Catarina', SP: 'São Paulo',
+  SE: 'Sergipe', TO: 'Tocantins',
 }
 
 export interface Subject {

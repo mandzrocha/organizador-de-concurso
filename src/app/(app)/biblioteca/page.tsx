@@ -9,7 +9,8 @@ import { enrollUser } from '@/lib/exam-actions'
 import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged, emitDataChanged } from '@/lib/events'
-import { Exam } from '@/lib/types'
+import { Dropdown } from '@/components/Dropdown'
+import { Exam, EXAM_CATEGORIES, EXAM_CATEGORY_LABELS, UF_NAMES } from '@/lib/types'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Library, Search, BookOpen, Rocket, Check, Plus, CalendarClock, FolderOpen } from 'lucide-react'
@@ -27,6 +28,8 @@ export default function BibliotecaPage() {
   const [exams, setExams] = useState<CatalogExam[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [ufFilter, setUfFilter] = useState('all')
   const [enrolling, setEnrolling] = useState<string | null>(null)
 
   useEffect(() => { load() }, [])
@@ -75,13 +78,31 @@ export default function BibliotecaPage() {
     }
   }
 
+  // Opções de filtro que realmente existem nos dados
+  const categoryOptions = useMemo(() => {
+    const present = new Set(exams.map(e => e.category).filter(Boolean) as string[])
+    return [{ value: 'all', label: 'Todas as áreas' }, ...EXAM_CATEGORIES.filter(c => present.has(c.key)).map(c => ({ value: c.key, label: c.label }))]
+  }, [exams])
+
+  const ufOptions = useMemo(() => {
+    const present = [...new Set(exams.map(e => e.uf).filter(Boolean) as string[])].sort((a, b) => (UF_NAMES[a] || a).localeCompare(UF_NAMES[b] || b))
+    return [
+      { value: 'all', label: 'Todo o Brasil' },
+      { value: 'nacional', label: 'Só nacionais' },
+      ...present.map(uf => ({ value: uf, label: UF_NAMES[uf] || uf })),
+    ]
+  }, [exams])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
-    if (!q) return exams
-    return exams.filter(e =>
-      e.name.toLowerCase().includes(q) || (e.organization || '').toLowerCase().includes(q),
-    )
-  }, [exams, query])
+    return exams.filter(e => {
+      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
+      if (ufFilter === 'nacional' && e.uf) return false
+      if (ufFilter !== 'all' && ufFilter !== 'nacional' && e.uf !== ufFilter) return false
+      if (!q) return true
+      return e.name.toLowerCase().includes(q) || (e.organization || '').toLowerCase().includes(q)
+    })
+  }, [exams, query, categoryFilter, ufFilter])
 
   const available = filtered.filter(e => !e.enrolled)
   const mine = filtered.filter(e => e.enrolled)
@@ -117,15 +138,23 @@ export default function BibliotecaPage() {
         </div>
       ) : (
         <>
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
-            <input
-              type="text"
-              placeholder="Buscar por concurso ou órgão..."
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              style={{ paddingLeft: 36 }}
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 z-10" style={{ color: 'var(--text-subtle)' }} />
+              <input
+                type="text"
+                placeholder="Buscar por concurso ou órgão..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                style={{ paddingLeft: 36 }}
+              />
+            </div>
+            <div className="w-full sm:w-44">
+              <Dropdown value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
+            </div>
+            <div className="w-full sm:w-44">
+              <Dropdown value={ufFilter} onChange={setUfFilter} options={ufOptions} />
+            </div>
           </div>
 
           {available.length > 0 && (
@@ -173,6 +202,12 @@ function CatalogCard({ exam, enrolling, onEnroll }: { exam: CatalogExam; enrolli
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
+          {exam.category && EXAM_CATEGORY_LABELS[exam.category] && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>{EXAM_CATEGORY_LABELS[exam.category]}</span>
+          )}
+          {exam.uf && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.uf}</span>
+          )}
           {exam.organization && (
             <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.organization}</span>
           )}
