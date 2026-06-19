@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged, emitDataChanged } from '@/lib/events'
+import { Dropdown } from '@/components/Dropdown'
 import { Subject, Topic, ErrorNote } from '@/lib/types'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -281,7 +282,7 @@ function NoteForm({ topics, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+      <div className="w-full max-w-md rounded-2xl border" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
         <div className="px-5 pt-5 pb-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
           <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Anotar erro</h2>
           <button onClick={onClose} style={{ color: 'var(--text-subtle)' }}><X size={18} /></button>
@@ -295,17 +296,28 @@ function NoteForm({ topics, onClose, onSaved }: {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Matéria (opcional)</label>
-                <select value={subjectId} onChange={e => changeSubject(e.target.value)}>
-                  <option value="">— Nenhuma —</option>
-                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <Dropdown
+                  value={subjectId}
+                  onChange={changeSubject}
+                  placeholder="— Nenhuma —"
+                  options={[
+                    { value: '', label: '— Nenhuma —' },
+                    ...subjects.map(s => ({ value: s.id, label: s.name, color: s.color })),
+                  ]}
+                />
               </div>
               <div>
                 <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Tópico (opcional)</label>
-                <select value={topicId} onChange={e => setTopicId(e.target.value)} disabled={!subjectId}>
-                  <option value="">{subjectId ? '— Toda a matéria —' : 'Escolha a matéria antes'}</option>
-                  {topicsForSubject.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
+                <Dropdown
+                  value={topicId}
+                  onChange={setTopicId}
+                  disabled={!subjectId}
+                  placeholder={subjectId ? '— Toda a matéria —' : 'Escolha a matéria antes'}
+                  options={[
+                    { value: '', label: subjectId ? '— Toda a matéria —' : 'Escolha a matéria antes' },
+                    ...topicsForSubject.map(t => ({ value: t.id, label: t.name })),
+                  ]}
+                />
               </div>
             </div>
           )}
