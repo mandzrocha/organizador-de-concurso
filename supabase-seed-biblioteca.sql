@@ -13,10 +13,10 @@ alter table public.exams add column if not exists banca         text;
 alter table public.exams add column if not exists edital_status text;
 
 -- 2) Concursos NACIONAIS (uf nulo) ---------------------------------
--- Tabela temporária com a lista para fazer UPDATE (categorizar quem já
--- existe) + INSERT (criar os que faltam).
-create temp table _nacionais(name text, org text, descr text, category text);
-insert into _nacionais(name, org, descr, category) values
+-- Lista nacional em CTE: UPDATE (categoriza quem já existe) + INSERT
+-- (cria os que faltam). Sem tabela temporária — evita o aviso de RLS.
+with nacionais(name, org, descr, category) as (
+  values
   ('Concurso Nacional Unificado (CNU)', 'Ministério da Gestão e Inovação', 'O "Enem dos Concursos" — vários órgãos federais', 'federal'),
   ('Receita Federal',                   'Ministério da Fazenda',           'Auditor-Fiscal e Analista-Tributário', 'fiscal'),
   ('Polícia Federal',                   'Ministério da Justiça',           'Agente, Escrivão, Delegado e Perito', 'seguranca'),
@@ -51,21 +51,21 @@ insert into _nacionais(name, org, descr, category) values
   ('Superior Tribunal de Justiça (STJ)','STJ',                             'Analista e Técnico Judiciário', 'tribunais'),
   ('Tribunal Superior do Trabalho (TST)','TST',                            'Analista e Técnico Judiciário', 'tribunais'),
   ('Prefeitura Municipal',              'Prefeituras',                     'Cargos diversos — nível médio e superior', 'municipal'),
-  ('Câmara Municipal',                  'Câmaras Municipais',              'Analista e Técnico Legislativo', 'municipal');
-
+  ('Câmara Municipal',                  'Câmaras Municipais',              'Analista e Técnico Legislativo', 'municipal')
+),
 -- categoriza quem já existe (sem categoria)
-update public.exams e
-  set category = n.category, organization = coalesce(e.organization, n.org)
-  from _nacionais n
-  where lower(e.name) = lower(n.name) and e.category is null;
-
+upd as (
+  update public.exams e
+    set category = n.category, organization = coalesce(e.organization, n.org)
+    from nacionais n
+    where lower(e.name) = lower(n.name) and e.category is null
+    returning e.id
+)
 -- insere os que faltam
 insert into public.exams (name, organization, description, category)
 select n.name, n.org, n.descr, n.category
-from _nacionais n
+from nacionais n
 where not exists (select 1 from public.exams e where lower(e.name) = lower(n.name));
-
-drop table _nacionais;
 
 -- 3) Forças Armadas (militar) -------------------------------------
 insert into public.exams (name, organization, description, category)
