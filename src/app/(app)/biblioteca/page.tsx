@@ -34,6 +34,16 @@ export default function BibliotecaPage() {
   useEffect(() => { load() }, [])
   useDataChanged(() => { load() })
 
+  // Filtros ficam salvos no navegador (persistem entre visitas, mas podem trocar)
+  useEffect(() => {
+    const c = localStorage.getItem('biblioteca-category')
+    const u = localStorage.getItem('biblioteca-uf')
+    if (c) setCategoryFilter(c)
+    if (u) setUfFilter(u)
+  }, [])
+  useEffect(() => { localStorage.setItem('biblioteca-category', categoryFilter) }, [categoryFilter])
+  useEffect(() => { localStorage.setItem('biblioteca-uf', ufFilter) }, [ufFilter])
+
   async function load() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
     const userId = await getUserId(supabase)
