@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -8,13 +8,15 @@ import { Exam } from '@/lib/types'
 import { isSupabaseConfigured } from '@/lib/config'
 import { unenrollExam } from '@/lib/exam-actions'
 import { getUserId } from '@/lib/auth'
+import { matchEditalNews } from '@/lib/edital-news'
+import type { NewsItem } from '@/app/api/news/route'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged } from '@/lib/events'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList } from 'lucide-react'
+import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList, Bell, ExternalLink } from 'lucide-react'
 
 interface ExamWithStats extends Exam {
   subject_count: number
@@ -24,6 +26,7 @@ interface ExamWithStats extends Exam {
 export default function ExamsPage() {
   const [exams, setExams] = useState<ExamWithStats[]>([])
   const [loading, setLoading] = useState(true)
+  const [news, setNews] = useState<NewsItem[]>([])
   const supabase = createClient()
   const router = useRouter()
   const confirm = useConfirm()
@@ -31,6 +34,18 @@ export default function ExamsPage() {
 
   useEffect(() => { loadExams() }, [])
   useDataChanged(() => { loadExams() })
+
+  // Busca notícias uma vez para detectar possíveis editais novos
+  useEffect(() => {
+    fetch('/api/news').then(r => r.json()).then(d => setNews(d.items || [])).catch(() => {})
+  }, [])
+
+  // Concursos que valem alerta: "de olho" ou em pré-edital (sem data)
+  const editalAlerts = useMemo(() => {
+    if (news.length === 0) return {} as Record<string, NewsItem>
+    const watchOrPre = exams.filter(e => e.is_watching || !e.exam_date)
+    return matchEditalNews(watchOrPre, news)
+  }, [exams, news])
 
   async function loadExams() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -138,6 +153,34 @@ export default function ExamsPage() {
           <Plus size={14} strokeWidth={2.5} /> Novo Concurso
         </Link>
       </div>
+
+      {/* Aviso de possível edital novo (cruza concursos de olho / pré-edital com notícias) */}
+      {Object.keys(editalAlerts).length > 0 && (
+        <div className="rounded-2xl border p-4" style={{ background: 'var(--primary-soft)', borderColor: 'var(--primary)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Bell size={15} style={{ color: 'var(--primary-strong)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-soft-text)' }}>Pode ter saído edital</h3>
+          </div>
+          <div className="space-y-1.5">
+            {exams.filter(e => editalAlerts[e.id]).map(e => {
+              const n = editalAlerts[e.id]
+              return (
+                <div key={e.id} className="flex items-start gap-2 text-sm">
+                  <span className="font-medium flex-shrink-0" style={{ color: 'var(--text)' }}>{e.name}:</span>
+                  <a href={n.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-start gap-1 hover:underline" style={{ color: 'var(--primary-strong)' }}>
+                    <span>{n.title}</span>
+                    <ExternalLink size={12} className="flex-shrink-0 mt-0.5" />
+                  </a>
+                  <Link href={`/exams/${e.id}/edit?tab=edital`} className="ml-auto text-xs whitespace-nowrap px-2 py-1 rounded-md flex-shrink-0" style={{ background: 'var(--surface)', color: 'var(--primary-strong)' }}>
+                    Atualizar edital
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Detectado nas notícias — confira na fonte antes de confiar.</p>
+        </div>
+      )}
 
       {exams.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
