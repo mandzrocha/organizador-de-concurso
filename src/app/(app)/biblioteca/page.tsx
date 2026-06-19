@@ -10,29 +10,9 @@ import { useToast } from '@/components/Toast'
 import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged, emitDataChanged } from '@/lib/events'
 import { Dropdown } from '@/components/Dropdown'
-import { newsForExam } from '@/lib/edital-news'
-import type { NewsItem } from '@/app/api/news/route'
-import { Exam, EXAM_CATEGORIES, EXAM_CATEGORY_LABELS, UF_NAMES, EDITAL_STATUS, EDITAL_STATUS_MAP } from '@/lib/types'
-import { format, parseISO, formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { Library, Search, BookOpen, Rocket, Check, Plus, CalendarClock, X, ExternalLink, Pencil, Building2, ScrollText } from 'lucide-react'
-
-const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
-  muted:   { bg: 'var(--surface-hover)', fg: 'var(--text-muted)' },
-  warning: { bg: 'var(--warning-soft)',  fg: 'var(--warning)' },
-  primary: { bg: 'var(--primary-soft)',  fg: 'var(--primary-soft-text)' },
-  success: { bg: 'var(--success-soft)',  fg: 'var(--success)' },
-  danger:  { bg: 'var(--danger-soft)',   fg: 'var(--danger)' },
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  const meta = status ? EDITAL_STATUS_MAP[status] : null
-  if (!meta) return null
-  const tone = STATUS_TONE[meta.tone] || STATUS_TONE.muted
-  return (
-    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: tone.bg, color: tone.fg }}>{meta.label}</span>
-  )
-}
+import { EditalStatusBadge } from '@/components/EditalStatusBadge'
+import { Exam, EXAM_CATEGORIES, EXAM_CATEGORY_LABELS, UF_NAMES } from '@/lib/types'
+import { Library, Search, BookOpen, Rocket, Check, Plus } from 'lucide-react'
 
 interface CatalogExam extends Exam {
   subject_count: number
@@ -50,15 +30,9 @@ export default function BibliotecaPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [ufFilter, setUfFilter] = useState('all')
   const [enrolling, setEnrolling] = useState<string | null>(null)
-  const [news, setNews] = useState<NewsItem[]>([])
-  const [detail, setDetail] = useState<CatalogExam | null>(null)
 
   useEffect(() => { load() }, [])
   useDataChanged(() => { load() })
-
-  useEffect(() => {
-    fetch('/api/news').then(r => r.json()).then(d => setNews(d.items || [])).catch(() => {})
-  }, [])
 
   async function load() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -189,7 +163,7 @@ export default function BibliotecaPage() {
               </h2>
               <div className="grid gap-3">
                 {available.map(exam => (
-                  <CatalogCard key={exam.id} exam={exam} enrolling={enrolling === exam.id} onEnroll={() => enroll(exam)} onOpen={() => setDetail(exam)} />
+                  <CatalogCard key={exam.id} exam={exam} enrolling={enrolling === exam.id} onEnroll={() => enroll(exam)} onOpen={() => router.push(`/biblioteca/${exam.id}`)} />
                 ))}
               </div>
             </section>
@@ -202,7 +176,7 @@ export default function BibliotecaPage() {
               </h2>
               <div className="grid gap-3">
                 {mine.map(exam => (
-                  <CatalogCard key={exam.id} exam={exam} enrolling={false} onEnroll={() => router.push(`/exams/${exam.id}`)} onOpen={() => setDetail(exam)} />
+                  <CatalogCard key={exam.id} exam={exam} enrolling={false} onEnroll={() => router.push(`/exams/${exam.id}`)} onOpen={() => router.push(`/biblioteca/${exam.id}`)} />
                 ))}
               </div>
             </section>
@@ -214,20 +188,6 @@ export default function BibliotecaPage() {
             </div>
           )}
         </>
-      )}
-
-      {detail && (
-        <DetailModal
-          exam={detail}
-          news={news}
-          enrolling={enrolling === detail.id}
-          onEnroll={() => enroll(detail)}
-          onClose={() => setDetail(null)}
-          onUpdated={(patch) => {
-            setDetail(d => d ? { ...d, ...patch } : d)
-            setExams(list => list.map(e => e.id === detail.id ? { ...e, ...patch } : e))
-          }}
-        />
       )}
     </div>
   )
@@ -247,7 +207,7 @@ function CatalogCard({ exam, enrolling, onEnroll, onOpen }: { exam: CatalogExam;
           {exam.uf && (
             <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.uf}</span>
           )}
-          <StatusBadge status={exam.edital_status} />
+          <EditalStatusBadge status={exam.edital_status} />
         </div>
         <h3 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h3>
         <div className="flex items-center gap-x-4 gap-y-0.5 mt-1 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
@@ -267,172 +227,6 @@ function CatalogCard({ exam, enrolling, onEnroll, onOpen }: { exam: CatalogExam;
           </button>
         )}
       </div>
-    </div>
-  )
-}
-
-function DetailModal({ exam, news, enrolling, onEnroll, onClose, onUpdated }: {
-  exam: CatalogExam
-  news: NewsItem[]
-  enrolling: boolean
-  onEnroll: () => void
-  onClose: () => void
-  onUpdated: (patch: Partial<CatalogExam>) => void
-}) {
-  const supabase = createClient()
-  const toast = useToast()
-  const [tab, setTab] = useState<'sobre' | 'noticias'>('sobre')
-  const [editing, setEditing] = useState(false)
-  const [banca, setBanca] = useState(exam.banca || '')
-  const [status, setStatus] = useState(exam.edital_status || 'previsto')
-  const [saving, setSaving] = useState(false)
-
-  const related = useMemo(() => newsForExam(exam, news), [exam, news])
-
-  async function saveInfo() {
-    setSaving(true)
-    try {
-      const patch = { banca: banca.trim() || null, edital_status: status }
-      const { error } = await supabase.from('exams').update(patch).eq('id', exam.id)
-      if (error) throw error
-      onUpdated(patch as Partial<CatalogExam>)
-      toast.success('Informações atualizadas!')
-      setEditing(false)
-    } catch (e: any) {
-      toast.error('Erro ao salvar: ' + (e?.message || 'tente novamente'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-lg rounded-2xl border flex flex-col" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)', maxHeight: '88vh' }}>
-        {/* Header */}
-        <div className="px-5 pt-5 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                {exam.category && EXAM_CATEGORY_LABELS[exam.category] && (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>{EXAM_CATEGORY_LABELS[exam.category]}</span>
-                )}
-                {exam.uf && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{UF_NAMES[exam.uf] || exam.uf}</span>}
-                <StatusBadge status={exam.edital_status} />
-              </div>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h2>
-            </div>
-            <button onClick={onClose} style={{ color: 'var(--text-subtle)' }} className="flex-shrink-0"><X size={18} /></button>
-          </div>
-          {/* Tabs */}
-          <div className="flex items-center gap-1 mt-3 -mb-3">
-            {([['sobre', 'Sobre'], ['noticias', `Notícias${related.length ? ` (${related.length})` : ''}`]] as const).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setTab(k)}
-                className="text-sm px-3 py-2 border-b-2 transition-colors"
-                style={tab === k
-                  ? { borderColor: 'var(--primary)', color: 'var(--primary-strong)', fontWeight: 600 }
-                  : { borderColor: 'transparent', color: 'var(--text-muted)' }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="p-5 overflow-y-auto">
-          {tab === 'sobre' ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <InfoBox icon={<Building2 size={14} />} label="Órgão" value={exam.organization || '—'} />
-                <InfoBox icon={<ScrollText size={14} />} label="Banca" value={exam.banca || 'A definir'} />
-              </div>
-              {exam.description && (
-                <div>
-                  <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-subtle)' }}>Cargos / Descrição</p>
-                  <p className="text-sm" style={{ color: 'var(--text)' }}>{exam.description}</p>
-                </div>
-              )}
-              <div className="flex items-center gap-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                <span>{exam.subject_count} matérias</span>
-                <span>{exam.topic_count} tópicos</span>
-                {exam.exam_date && <span className="inline-flex items-center gap-1"><CalendarClock size={13} /> {format(parseISO(exam.exam_date), "d MMM yyyy", { locale: ptBR })}</span>}
-              </div>
-
-              {/* Editar banca / situação */}
-              {editing ? (
-                <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--primary)' }}>
-                  <div>
-                    <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Banca organizadora</label>
-                    <input type="text" placeholder="Ex: Cebraspe, FGV, Vunesp..." value={banca} onChange={e => setBanca(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Situação do edital</label>
-                    <Dropdown value={status} onChange={setStatus} options={EDITAL_STATUS.map(s => ({ value: s.key, label: s.label }))} />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditing(false)} className="flex-1 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
-                    <button onClick={saveInfo} disabled={saving} className="flex-1 py-2 rounded-lg text-sm font-semibold disabled:opacity-40" style={{ background: 'var(--primary-strong)', color: '#fff' }}>{saving ? 'Salvando...' : 'Salvar'}</button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => setEditing(true)} className="text-xs inline-flex items-center gap-1.5" style={{ color: 'var(--primary-strong)' }}>
-                  <Pencil size={12} /> Editar banca e situação do edital
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {related.length === 0 ? (
-                <div className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Nenhuma notícia recente sobre este concurso.
-                </div>
-              ) : related.map((n, i) => {
-                let d: Date | null = null
-                try { d = new Date(n.pubDate) } catch {}
-                const ok = d && !isNaN(d.getTime())
-                return (
-                  <a key={i} href={n.link} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-lg transition-colors hover:bg-[var(--surface-hover)]" style={{ background: 'var(--surface-hover)' }}>
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{n.title}</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>
-                          {n.source}{ok ? ` · ${formatDistanceToNow(d!, { locale: ptBR, addSuffix: true })}` : ''}
-                        </p>
-                      </div>
-                      <ExternalLink size={13} style={{ color: 'var(--text-subtle)' }} className="flex-shrink-0 mt-0.5" />
-                    </div>
-                  </a>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-4 border-t flex gap-3" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Fechar</button>
-          {exam.enrolled ? (
-            <button onClick={onEnroll} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-1.5" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>
-              <Check size={14} /> Abrir concurso
-            </button>
-          ) : (
-            <button onClick={onEnroll} disabled={enrolling} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
-              <Rocket size={14} /> {enrolling ? 'Inscrevendo...' : 'Estudar este'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InfoBox({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
-      <p className="text-xs uppercase tracking-wide inline-flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-subtle)' }}>{icon} {label}</p>
-      <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }} title={value}>{value}</p>
     </div>
   )
 }
