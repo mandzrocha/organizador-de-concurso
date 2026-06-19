@@ -12,9 +12,23 @@ export interface Exam {
   description: string | null
   uf: string | null          // sigla do estado (ex.: SP); null = nacional
   category: string | null    // categoria/área (ver EXAM_CATEGORIES)
+  banca: string | null       // banca organizadora (ex.: Cebraspe, FGV)
+  edital_status: string | null // situação do edital (ver EDITAL_STATUS)
   created_at: string
   updated_at: string
 }
+
+// Situação do edital (badge na Biblioteca / detalhe do concurso)
+export const EDITAL_STATUS: { key: string; label: string; tone: 'muted' | 'warning' | 'primary' | 'success' | 'danger' }[] = [
+  { key: 'previsto',   label: 'Previsto',           tone: 'muted' },
+  { key: 'autorizado', label: 'Autorizado',         tone: 'warning' },
+  { key: 'banca',      label: 'Banca definida',     tone: 'primary' },
+  { key: 'publicado',  label: 'Edital publicado',   tone: 'primary' },
+  { key: 'inscricoes', label: 'Inscrições abertas', tone: 'success' },
+  { key: 'encerrado',  label: 'Encerrado',          tone: 'danger' },
+]
+export const EDITAL_STATUS_MAP: Record<string, { label: string; tone: string }> =
+  Object.fromEntries(EDITAL_STATUS.map(s => [s.key, { label: s.label, tone: s.tone }]))
 
 // Categorias/áreas dos concursos (usadas nos filtros da Biblioteca)
 export const EXAM_CATEGORIES: { key: string; label: string }[] = [

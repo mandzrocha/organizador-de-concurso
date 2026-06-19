@@ -6,9 +6,11 @@
 -- Idempotente: não duplica por nome (case-insensitive). Rode no SQL Editor.
 -- =============================================================
 
--- 1) Colunas de filtro (sigla do estado e categoria/área)
-alter table public.exams add column if not exists uf       text;
-alter table public.exams add column if not exists category text;
+-- 1) Colunas de filtro/detalhe
+alter table public.exams add column if not exists uf            text;
+alter table public.exams add column if not exists category      text;
+alter table public.exams add column if not exists banca         text;
+alter table public.exams add column if not exists edital_status text;
 
 -- 2) Concursos NACIONAIS (uf nulo) ---------------------------------
 -- Tabela temporária com a lista para fazer UPDATE (categorizar quem já
@@ -48,7 +50,6 @@ insert into _nacionais(name, org, descr, category) values
   ('Tribunal Regional Eleitoral (TRE)', 'Justiça Eleitoral',               'Analista e Técnico Judiciário', 'tribunais'),
   ('Superior Tribunal de Justiça (STJ)','STJ',                             'Analista e Técnico Judiciário', 'tribunais'),
   ('Tribunal Superior do Trabalho (TST)','TST',                            'Analista e Técnico Judiciário', 'tribunais'),
-  ('DETRAN (nacional)',                 'Departamentos de Trânsito',       'Assistente e Analista de Trânsito', 'transito'),
   ('Prefeitura Municipal',              'Prefeituras',                     'Cargos diversos — nível médio e superior', 'municipal'),
   ('Câmara Municipal',                  'Câmaras Municipais',              'Analista e Técnico Legislativo', 'municipal');
 
@@ -102,15 +103,21 @@ from (values
   ('SE','Sergipe'),('TO','Tocantins')
 ) as s(uf, nome)
 cross join (values
-  ('Tribunal de Justiça',  'TJ',    'Escrevente, Analista e Técnico Judiciário', 'tribunais'),
-  ('Ministério Público',   'MP',    'Analista e Técnico do MP',                  'tribunais'),
-  ('Polícia Civil',        'PC',    'Investigador, Escrivão e Delegado',         'seguranca'),
-  ('Polícia Militar',      'PM',    'Soldado e Oficial',                         'seguranca'),
-  ('Corpo de Bombeiros',   'CBM',   'Soldado e Oficial',                         'seguranca'),
-  ('Polícia Penal',        'PP-',   'Policial Penal',                            'seguranca'),
-  ('SEFAZ (Auditor Fiscal)','SEFAZ-','Auditor Fiscal da Receita Estadual',       'fiscal'),
-  ('Tribunal de Contas',   'TCE-',  'Auditor, Analista e Técnico de Controle',   'controle')
+  ('Tribunal de Justiça',   'TJ',    'Escrevente, Analista e Técnico Judiciário', 'tribunais'),
+  ('Ministério Público',    'MP',    'Analista e Técnico do MP',                  'tribunais'),
+  ('Defensoria Pública',    'DPE-',  'Analista, Técnico e Defensor Público',      'tribunais'),
+  ('Polícia Civil',         'PC',    'Investigador, Escrivão e Delegado',         'seguranca'),
+  ('Polícia Militar',       'PM',    'Soldado e Oficial',                         'seguranca'),
+  ('Corpo de Bombeiros',    'CBM',   'Soldado e Oficial',                         'seguranca'),
+  ('Polícia Penal',         'PP-',   'Policial Penal',                            'seguranca'),
+  ('SEFAZ (Auditor Fiscal)','SEFAZ-','Auditor Fiscal da Receita Estadual',        'fiscal'),
+  ('Tribunal de Contas',    'TCE-',  'Auditor, Analista e Técnico de Controle',   'controle'),
+  ('Assembleia Legislativa','ALE-',  'Analista e Técnico Legislativo',            'legislativo'),
+  ('DETRAN',                'DETRAN-','Assistente e Analista de Trânsito',         'transito')
 ) as t(prefixo, sigla, descr, category)
 where not exists (
   select 1 from public.exams e where lower(e.name) = lower(t.prefixo || ' - ' || s.nome)
 );
+
+-- 5) Situação padrão do edital para quem ainda não tem (pré-edital) -
+update public.exams set edital_status = 'previsto' where edital_status is null;

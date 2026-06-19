@@ -25,6 +25,23 @@ function tokens(s: string): string[] {
  * edital dele: precisa bater um token distintivo (nome/órgão) E conter uma
  * palavra-chave de edital. Retorna um mapa examId -> NewsItem.
  */
+/**
+ * Todas as notícias que mencionam um concurso específico (por token
+ * distintivo do nome/órgão), ordenadas como vieram (mais recentes primeiro).
+ * Diferente de matchEditalNews: aqui NÃO exige palavra-chave de edital.
+ */
+export function newsForExam(exam: Exam, news: NewsItem[], limit = 8): NewsItem[] {
+  const examTokens = new Set([...tokens(exam.name), ...tokens(exam.organization || '')])
+  if (examTokens.size === 0) return []
+  const out: NewsItem[] = []
+  for (const item of news) {
+    const titleTokens = new Set(tokens(item.title + ' ' + item.description))
+    if ([...examTokens].some(t => titleTokens.has(t))) out.push(item)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 export function matchEditalNews(exams: Exam[], news: NewsItem[]): Record<string, NewsItem> {
   const result: Record<string, NewsItem> = {}
   for (const exam of exams) {
