@@ -9,11 +9,15 @@
 create table if not exists public.error_notes (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users(id) on delete cascade,
-  topic_id   uuid references public.topics(id) on delete set null, -- tópico (opcional)
+  subject_id uuid references public.subjects(id) on delete set null, -- matéria (opcional)
+  topic_id   uuid references public.topics(id) on delete set null,   -- tópico (opcional)
   content    text not null,                 -- o que errou / o que revisar
   resolved   boolean not null default false, -- marcado como resolvido
   created_at timestamptz not null default now()
 );
+
+-- Se a tabela já existia sem a coluna de matéria, adiciona agora:
+alter table public.error_notes add column if not exists subject_id uuid references public.subjects(id) on delete set null;
 
 create index if not exists error_notes_user_idx on public.error_notes (user_id);
 

@@ -115,10 +115,12 @@ export interface MockExam {
 export interface ErrorNote {
   id: string
   user_id: string
+  subject_id: string | null
   topic_id: string | null
   content: string
   resolved: boolean
   created_at: string
+  subject?: Subject | null
   topic?: (Topic & { subject?: Subject }) | null
 }
 

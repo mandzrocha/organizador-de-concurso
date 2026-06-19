@@ -53,7 +53,7 @@ export default function CadernoPage() {
       supabase.from('revision_schedule')
         .select('ease_factor, repetitions, topic:topics(*, subject:subjects(*))')
         .eq('user_id', userId).lt('ease_factor', 1.7).gt('repetitions', 0),
-      supabase.from('error_notes').select('*, topic:topics(*, subject:subjects(*))').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.from('error_notes').select('*, subject:subjects(*), topic:topics(*, subject:subjects(*))').eq('user_id', userId).order('created_at', { ascending: false }),
       examIds.length ? supabase.from('topics').select('*, subject:subjects(*)').in('exam_id', examIds) : Promise.resolve({ data: [] as any }),
     ])
 
@@ -200,12 +200,14 @@ export default function CadernoPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm" style={{ color: n.resolved ? 'var(--text-subtle)' : 'var(--text)', textDecoration: n.resolved ? 'line-through' : 'none' }}>{n.content}</p>
                   <div className="flex items-center gap-2 mt-1 text-xs flex-wrap" style={{ color: 'var(--text-subtle)' }}>
-                    {n.topic && (
+                    {(n.subject || n.topic?.subject) && (
                       <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: n.topic.subject?.color }} />
-                        {n.topic.name}
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: (n.subject || n.topic?.subject)?.color }} />
+                        {(n.subject || n.topic?.subject)?.name}
+                        {n.topic && <span style={{ color: 'var(--text-subtle)' }}> › {n.topic.name}</span>}
                       </span>
                     )}
+                    {!n.subject && !n.topic && <span>Sem matéria</span>}
                     <span>· {format(parseISO(n.created_at), "d 'de' MMM", { locale: ptBR })}</span>
                   </div>
                 </div>
@@ -233,20 +235,27 @@ function NoteForm({ topics, onClose, onSaved }: {
   const supabase = createClient()
   const toast = useToast()
   const [content, setContent] = useState('')
+  const [subjectId, setSubjectId] = useState('')
   const [topicId, setTopicId] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Agrupa tópicos por matéria (optgroup), em ordem alfabética
-  const grouped = useMemo(() => {
-    const map = new Map<string, { subject?: Subject; topics: (Topic & { subject: Subject })[] }>()
-    for (const t of topics) {
-      const sid = t.subject?.id || 'none'
-      if (!map.has(sid)) map.set(sid, { subject: t.subject, topics: [] })
-      map.get(sid)!.topics.push(t)
-    }
-    for (const g of map.values()) g.topics.sort((a, b) => a.name.localeCompare(b.name))
-    return [...map.values()].sort((a, b) => (a.subject?.name || '').localeCompare(b.subject?.name || ''))
+  // Matérias disponíveis (a partir dos tópicos), em ordem alfabética
+  const subjects = useMemo(() => {
+    const map = new Map<string, Subject>()
+    for (const t of topics) if (t.subject) map.set(t.subject.id, t.subject)
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [topics])
+
+  // Tópicos da matéria selecionada, em ordem alfabética
+  const topicsForSubject = useMemo(() => {
+    if (!subjectId) return []
+    return topics.filter(t => t.subject?.id === subjectId).sort((a, b) => a.name.localeCompare(b.name))
+  }, [topics, subjectId])
+
+  function changeSubject(v: string) {
+    setSubjectId(v)
+    setTopicId('') // troca de matéria zera o tópico
+  }
 
   async function save() {
     if (!content.trim()) return
@@ -256,6 +265,7 @@ function NoteForm({ topics, onClose, onSaved }: {
       if (!userId) { toast.error('Sua sessão expirou. Faça login novamente.'); setSaving(false); return }
       const { error } = await supabase.from('error_notes').insert({
         user_id: userId,
+        subject_id: subjectId || null,
         topic_id: topicId || null,
         content: content.trim(),
       })
@@ -281,17 +291,22 @@ function NoteForm({ topics, onClose, onSaved }: {
             <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>O que você errou / precisa revisar? *</label>
             <textarea placeholder="Ex: Confundi prescrição e decadência em Direito Civil..." value={content} onChange={e => setContent(e.target.value)} rows={3} autoFocus />
           </div>
-          {topics.length > 0 && (
-            <div>
-              <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Tópico (opcional)</label>
-              <select value={topicId} onChange={e => setTopicId(e.target.value)}>
-                <option value="">— Nenhum —</option>
-                {grouped.map(g => (
-                  <optgroup key={g.subject?.id || 'none'} label={g.subject?.name || 'Sem matéria'}>
-                    {g.topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+          {subjects.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Matéria (opcional)</label>
+                <select value={subjectId} onChange={e => changeSubject(e.target.value)}>
+                  <option value="">— Nenhuma —</option>
+                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Tópico (opcional)</label>
+                <select value={topicId} onChange={e => setTopicId(e.target.value)} disabled={!subjectId}>
+                  <option value="">{subjectId ? '— Toda a matéria —' : 'Escolha a matéria antes'}</option>
+                  {topicsForSubject.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
             </div>
           )}
         </div>
