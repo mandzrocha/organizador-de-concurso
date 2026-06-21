@@ -9,9 +9,10 @@ import { getUserId } from '@/lib/auth'
 import { useTheme } from './ThemeProvider'
 import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
+import { GlobalSearch } from './GlobalSearch'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
-import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check } from 'lucide-react'
+import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame } from 'lucide-react'
 
 interface Notif {
   id: string
@@ -27,7 +28,9 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { theme, toggle } = useTheme()
   const [email, setEmail] = useState<string | null>(null)
   const [notifs, setNotifs] = useState<Notif[]>([])
+  const [streak, setStreak] = useState(0)
   const [openMenu, setOpenMenu] = useState<null | 'bell' | 'profile'>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,8 +38,33 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
   }, [])
 
-  useEffect(() => { loadNotifs() }, [])
-  useDataChanged(() => { loadNotifs() })
+  useEffect(() => { loadNotifs(); loadStreak() }, [])
+  useDataChanged(() => { loadNotifs(); loadStreak() })
+
+  // Atalho Ctrl/Cmd+K abre a busca global
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(true) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  async function loadStreak() {
+    if (!isSupabaseConfigured()) return
+    const userId = await getUserId(supabase)
+    if (!userId) return
+    const { data } = await supabase.from('study_logs').select('studied_at').eq('user_id', userId).order('studied_at', { ascending: false }).limit(400)
+    const days = new Set((data || []).map((l: any) => l.studied_at))
+    let count = 0
+    for (let i = 0; i < 400; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i)
+      const ds = d.toISOString().split('T')[0]
+      if (days.has(ds)) count++
+      else if (i > 0) break // permite o dia de hoje ainda vazio
+    }
+    setStreak(count)
+  }
 
   // Fecha dropdowns ao clicar fora / Esc
   useEffect(() => {
@@ -101,9 +129,34 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <img src="/logo.svg" alt="ConcurFlow" className="h-7 w-auto" />
       </Link>
 
+      {/* Busca global (desktop: campo; sempre abre o mesmo overlay) */}
+      <button
+        onClick={() => setSearchOpen(true)}
+        className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border text-sm transition-colors hover:bg-[var(--surface-hover)] ml-1 lg:ml-0"
+        style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)', minWidth: 220 }}
+        title="Buscar (Ctrl+K)"
+      >
+        <Search size={15} />
+        <span className="flex-1 text-left">Buscar...</span>
+        <kbd className="text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>Ctrl K</kbd>
+      </button>
+
       <div className="flex-1" />
 
+      {/* Streak */}
+      {streak > 0 && (
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 h-9 rounded-lg" style={{ background: 'var(--surface-hover)' }} title="Dias seguidos estudando">
+          <Flame size={15} style={{ color: 'var(--warning)' }} fill={streak >= 3 ? 'var(--warning)' : 'transparent'} />
+          <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{streak}</span>
+        </div>
+      )}
+
       <div ref={wrapRef} className="flex items-center gap-1">
+        {/* Busca (mobile: só ícone) */}
+        <button onClick={() => setSearchOpen(true)} className="sm:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }} aria-label="Buscar">
+          <Search size={17} />
+        </button>
+
         {/* Tema */}
         <button onClick={toggle} className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }} title={theme === 'dark' ? 'Tema escuro' : 'Tema claro'} aria-label="Alternar tema">
           {theme === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
@@ -190,6 +243,8 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           )}
         </div>
       </div>
+
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
   )
 }
