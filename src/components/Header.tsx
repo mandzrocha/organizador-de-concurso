@@ -9,6 +9,7 @@ import { getUserId } from '@/lib/auth'
 import { useTheme } from './ThemeProvider'
 import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
+import { getDismissed, alertId } from '@/lib/dismissed-alerts'
 import { GlobalSearch } from './GlobalSearch'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
@@ -99,9 +100,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         const res = await fetch('/api/news').then(r => r.json()).catch(() => null)
         const news: NewsItem[] = res?.items || []
         const matches = matchEditalNews(watchOrPre, news)
+        const dismissed = getDismissed()
         for (const ex of watchOrPre) {
           const n = matches[ex.id]
-          if (n) items.push({ id: 'edital-' + ex.id, icon: <FileText size={14} />, text: `Possível edital novo: ${ex.name}`, href: n.link, external: true })
+          if (n && !dismissed.has(alertId(ex.id, n.link))) {
+            items.push({ id: 'edital-' + ex.id, icon: <FileText size={14} />, text: `Possível edital novo: ${ex.name}`, href: n.link, external: true })
+          }
         }
       }
     } catch { /* ignora */ }

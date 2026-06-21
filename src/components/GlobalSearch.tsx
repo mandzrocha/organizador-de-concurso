@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
@@ -30,7 +31,10 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   const [items, setItems] = useState<SearchItem[]>([])
   const [loaded, setLoaded] = useState(false)
   const [active, setActive] = useState(0)
+  const [mounted, setMounted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setMounted(true) }, [])
 
   // Carrega o índice na primeira abertura
   useEffect(() => {
@@ -108,7 +112,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     else if (e.key === 'Escape') onClose()
   }
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   // Agrupa resultados por tipo preservando a ordem
   const groups: { group: string; items: SearchItem[] }[] = []
@@ -121,7 +125,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
 
   let flatIndex = -1
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[10vh]" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-xl rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
         <div className="flex items-center gap-3 px-4 border-b" style={{ borderColor: 'var(--border)' }}>
@@ -183,5 +187,5 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }

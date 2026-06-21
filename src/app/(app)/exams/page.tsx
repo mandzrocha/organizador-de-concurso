@@ -9,6 +9,7 @@ import { isSupabaseConfigured } from '@/lib/config'
 import { unenrollExam } from '@/lib/exam-actions'
 import { getUserId } from '@/lib/auth'
 import { matchEditalNews } from '@/lib/edital-news'
+import { getDismissed, dismissAlert, alertId } from '@/lib/dismissed-alerts'
 import type { NewsItem } from '@/app/api/news/route'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
@@ -16,7 +17,7 @@ import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged } from '@/lib/events'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList, Bell, ExternalLink } from 'lucide-react'
+import { Plus, Star, Eye, FolderOpen, Trash2, Rocket, Pencil, ClipboardList, Bell, ExternalLink, X } from 'lucide-react'
 
 interface ExamWithStats extends Exam {
   subject_count: number
@@ -27,6 +28,7 @@ export default function ExamsPage() {
   const [exams, setExams] = useState<ExamWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [news, setNews] = useState<NewsItem[]>([])
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
   const confirm = useConfirm()
@@ -38,14 +40,26 @@ export default function ExamsPage() {
   // Busca notícias uma vez para detectar possíveis editais novos
   useEffect(() => {
     fetch('/api/news').then(r => r.json()).then(d => setNews(d.items || [])).catch(() => {})
+    setDismissed(getDismissed())
   }, [])
 
-  // Concursos que valem alerta: "de olho" ou em pré-edital (sem data)
+  // Concursos que valem alerta: "de olho" ou em pré-edital (sem data),
+  // exceto os que o usuário já dispensou
   const editalAlerts = useMemo(() => {
     if (news.length === 0) return {} as Record<string, NewsItem>
     const watchOrPre = exams.filter(e => e.is_watching || !e.exam_date)
-    return matchEditalNews(watchOrPre, news)
-  }, [exams, news])
+    const matches = matchEditalNews(watchOrPre, news)
+    const out: Record<string, NewsItem> = {}
+    for (const [examId, item] of Object.entries(matches)) {
+      if (!dismissed.has(alertId(examId, item.link))) out[examId] = item
+    }
+    return out
+  }, [exams, news, dismissed])
+
+  function dismiss(examId: string, link: string) {
+    dismissAlert(alertId(examId, link))
+    setDismissed(new Set([...dismissed, alertId(examId, link)]))
+  }
 
   async function loadExams() {
     if (!isSupabaseConfigured()) { setLoading(false); return }
@@ -174,6 +188,9 @@ export default function ExamsPage() {
                   <Link href={`/exams/${e.id}/edit?tab=edital`} className="ml-auto text-xs whitespace-nowrap px-2 py-1 rounded-md flex-shrink-0" style={{ background: 'var(--surface)', color: 'var(--primary-strong)' }}>
                     Atualizar edital
                   </Link>
+                  <button onClick={() => dismiss(e.id, n.link)} className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--surface)]" style={{ color: 'var(--text-subtle)' }} title="Dispensar aviso" aria-label="Dispensar aviso">
+                    <X size={14} />
+                  </button>
                 </div>
               )
             })}
