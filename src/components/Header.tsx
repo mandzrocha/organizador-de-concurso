@@ -7,13 +7,14 @@ import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
 import { getUserId } from '@/lib/auth'
 import { useTheme } from './ThemeProvider'
+import { useStudyTools } from './StudyTools'
 import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
 import { getDismissed, dismissAlert, alertId } from '@/lib/dismissed-alerts'
 import { GlobalSearch } from './GlobalSearch'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
-import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X } from 'lucide-react'
+import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X, Timer } from 'lucide-react'
 
 interface Notif {
   id: string
@@ -28,6 +29,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const supabase = createClient()
   const router = useRouter()
   const { theme, toggle } = useTheme()
+  const { openPomodoro, pomodoroOpen } = useStudyTools()
   const [email, setEmail] = useState<string | null>(null)
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [streak, setStreak] = useState(0)
@@ -173,6 +175,11 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         {/* Busca (mobile: só ícone) */}
         <button onClick={() => setSearchOpen(true)} className="sm:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }} aria-label="Buscar">
           <Search size={17} />
+        </button>
+
+        {/* Pomodoro */}
+        <button onClick={openPomodoro} className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: pomodoroOpen ? 'var(--primary)' : 'var(--text-muted)', background: pomodoroOpen ? 'var(--primary-soft)' : undefined }} title="Pomodoro" aria-label="Pomodoro">
+          <Timer size={17} />
         </button>
 
         {/* Tema */}

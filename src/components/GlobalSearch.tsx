@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
 import { getUserId } from '@/lib/auth'
-import { Search, X, FileText, BookMarked, Hash, Library, CornerDownLeft } from 'lucide-react'
+import { Search, X, FileText, BookMarked, Hash, Library, CornerDownLeft, Trophy } from 'lucide-react'
 
 interface SearchItem {
-  type: 'exam' | 'topic' | 'subject' | 'catalog'
+  type: 'exam' | 'topic' | 'subject' | 'catalog' | 'simulado'
   id: string
   label: string
   sub?: string
@@ -18,10 +18,11 @@ interface SearchItem {
 }
 
 const TYPE_META: Record<SearchItem['type'], { icon: React.ReactNode; group: string }> = {
-  exam:    { icon: <FileText size={15} />,   group: 'Meus concursos' },
-  subject: { icon: <BookMarked size={15} />, group: 'Matérias' },
-  topic:   { icon: <Hash size={15} />,       group: 'Tópicos' },
-  catalog: { icon: <Library size={15} />,    group: 'Biblioteca' },
+  exam:     { icon: <FileText size={15} />,   group: 'Meus concursos' },
+  subject:  { icon: <BookMarked size={15} />, group: 'Matérias' },
+  topic:    { icon: <Hash size={15} />,       group: 'Tópicos' },
+  simulado: { icon: <Trophy size={15} />,     group: 'Simulados' },
+  catalog:  { icon: <Library size={15} />,    group: 'Biblioteca' },
 }
 
 export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -53,11 +54,12 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     const myIds = new Set(myExams.map((e: any) => e.id))
     const examIds = myExams.map((e: any) => e.id)
 
-    const [topicsRes, catalogRes] = await Promise.all([
+    const [topicsRes, catalogRes, mockRes] = await Promise.all([
       examIds.length
         ? supabase.from('topics').select('id, name, exam_id, subject:subjects(name, color)').in('exam_id', examIds)
         : Promise.resolve({ data: [] as any }),
       supabase.from('exams').select('id, name, organization'),
+      supabase.from('mock_exams').select('id, title, taken_at').eq('user_id', userId).order('taken_at', { ascending: false }),
     ])
 
     const list: SearchItem[] = []
@@ -71,6 +73,11 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
         list.push({ type: 'subject', id: 'subj-' + subjName, label: subjName, color: t.subject?.color, href: `/exams/${t.exam_id}` })
       }
       list.push({ type: 'topic', id: t.id, label: t.name, sub: subjName, color: t.subject?.color, href: `/exams/${t.exam_id}` })
+    }
+
+    // Simulados (mock_exams pode não existir ainda; ignora erro)
+    for (const m of (mockRes.data || []) as any[]) {
+      list.push({ type: 'simulado', id: 'sim-' + m.id, label: m.title, sub: 'Simulado', href: '/simulados' })
     }
 
     // Concursos do catálogo em que o usuário NÃO está inscrito
@@ -87,7 +94,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     if (!q) return [] as SearchItem[]
     const scored = items.filter(i => i.label.toLowerCase().includes(q) || (i.sub || '').toLowerCase().includes(q))
     // ordena: começa com o termo primeiro, depois por tipo
-    const order: Record<SearchItem['type'], number> = { exam: 0, subject: 1, topic: 2, catalog: 3 }
+    const order: Record<SearchItem['type'], number> = { exam: 0, subject: 1, topic: 2, simulado: 3, catalog: 4 }
     return scored
       .sort((a, b) => {
         const as = a.label.toLowerCase().startsWith(q) ? 0 : 1
