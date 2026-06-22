@@ -7,19 +7,50 @@ import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
 import { getUserId } from '@/lib/auth'
 import { useTheme } from './ThemeProvider'
-import { useStudyTools } from './StudyTools'
 import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
 import { getDismissed, dismissAlert, alertId } from '@/lib/dismissed-alerts'
 import { GlobalSearch } from './GlobalSearch'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
-import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X, Timer } from 'lucide-react'
+import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X } from 'lucide-react'
+
+// Frase motivacional do dia (muda a cada dia, estável dentro do dia)
+const PHRASES = [
+  'Cada página estudada hoje é uma vaga mais perto.',
+  'Disciplina vence talento quando o talento não tem disciplina.',
+  'O edital não espera — mas você está se preparando.',
+  'Constância vale mais que intensidade. Siga firme.',
+  'Um pouco todo dia faz uma aprovação no fim do ano.',
+  'A prova é dura, mas a sua rotina está te blindando.',
+  'Quem revisa hoje, lembra na hora da prova.',
+  'Foco no processo: a aprovação é consequência.',
+  'Você já chegou mais longe do que ontem.',
+  'Estudar cansado é o que separa os aprovados.',
+  'Resolva mais uma questão. É sempre a próxima que conta.',
+  'Não precisa ser perfeito, precisa ser constante.',
+  'O concurso dos seus sonhos cabe na sua rotina.',
+  'Cada erro corrigido hoje é um acerto garantido amanhã.',
+  'A vaga é sua. Vá buscá-la, uma matéria por vez.',
+]
+
+function dayOfYear(d = new Date()): number {
+  const start = new Date(d.getFullYear(), 0, 0)
+  return Math.floor((d.getTime() - start.getTime()) / 86400000)
+}
+
+function greeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
 
 interface Notif {
   id: string
   icon: React.ReactNode
   text: string
+  sub?: string          // frase curta dando contexto
   href: string
   external?: boolean
   dismissKey?: string   // se preenchido, pode ser dispensada (marcada como lida)
@@ -29,17 +60,24 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const supabase = createClient()
   const router = useRouter()
   const { theme, toggle } = useTheme()
-  const { openPomodoro, pomodoroOpen } = useStudyTools()
   const [email, setEmail] = useState<string | null>(null)
+  const [name, setName] = useState<string>('')
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [streak, setStreak] = useState(0)
   const [openMenu, setOpenMenu] = useState<null | 'bell' | 'profile'>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
+  const phrase = PHRASES[dayOfYear() % PHRASES.length]
+
   useEffect(() => {
     if (!isSupabaseConfigured()) return
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
+  }, [])
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user-name') : null
+    if (stored && stored !== 'Você') setName(stored)
   }, [])
 
   useEffect(() => { loadNotifs(); loadStreak() }, [])
@@ -90,7 +128,13 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
     // Revisões para hoje
     const { count } = await supabase.from('revision_schedule').select('id', { count: 'exact', head: true }).eq('user_id', userId).lte('next_review', today)
     if (count && count > 0) {
-      items.push({ id: 'reviews', icon: <RotateCw size={14} />, text: `${count} ${count === 1 ? 'revisão pendente' : 'revisões pendentes'} para hoje`, href: '/reviews' })
+      items.push({
+        id: 'reviews',
+        icon: <RotateCw size={14} />,
+        text: `${count} ${count === 1 ? 'revisão pendente' : 'revisões pendentes'} para hoje`,
+        sub: 'Revisar no dia certo fixa o conteúdo antes de esquecer.',
+        href: '/reviews',
+      })
     }
 
     // Possível edital novo (concursos "de olho" ou pré-edital × notícias)
@@ -107,7 +151,15 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         for (const ex of watchOrPre) {
           const n = matches[ex.id]
           if (n && !dismissed.has(alertId(ex.id, n.link))) {
-            items.push({ id: 'edital-' + ex.id, icon: <FileText size={14} />, text: `Possível edital novo: ${ex.name}`, href: n.link, external: true, dismissKey: alertId(ex.id, n.link) })
+            items.push({
+              id: 'edital-' + ex.id,
+              icon: <FileText size={14} />,
+              text: `Possível edital novo: ${ex.name}`,
+              sub: 'Notícia menciona este concurso — confira na fonte oficial.',
+              href: n.link,
+              external: true,
+              dismissKey: alertId(ex.id, n.link),
+            })
           }
         }
       }
@@ -137,23 +189,29 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b"
+      className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 h-14 border-b relative"
       style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
     >
-      {/* Hambúrguer (mobile) + logo (mobile) */}
-      <button onClick={onOpenMenu} className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center" style={{ color: 'var(--text-muted)' }} aria-label="Abrir menu">
-        <Menu size={20} />
-      </button>
-      <Link href="/dashboard" className="lg:hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="ConcurFlow" className="h-7 w-auto" />
-      </Link>
+      {/* Esquerda: menu/logo (mobile) + saudação (desktop) */}
+      <div className="flex items-center gap-2 min-w-0">
+        <button onClick={onOpenMenu} className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color: 'var(--text-muted)' }} aria-label="Abrir menu">
+          <Menu size={20} />
+        </button>
+        <Link href="/dashboard" className="lg:hidden flex-shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="ConcurFlow" className="h-7 w-auto" />
+        </Link>
+        <div className="hidden lg:block min-w-0 leading-tight">
+          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{greeting()}{name ? `, ${name}` : ''} 👋</p>
+          <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{phrase}</p>
+        </div>
+      </div>
 
-      {/* Busca global (desktop: campo; sempre abre o mesmo overlay) */}
+      {/* Centro: busca global (centralizada na barra) */}
       <button
         onClick={() => setSearchOpen(true)}
-        className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border text-sm transition-colors hover:bg-[var(--surface-hover)] ml-1 lg:ml-0"
-        style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)', minWidth: 220 }}
+        className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border text-sm transition-colors hover:bg-[var(--surface-hover)] absolute left-1/2 -translate-x-1/2 w-72"
+        style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}
         title="Buscar (Ctrl+K)"
       >
         <Search size={15} />
@@ -161,25 +219,19 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <kbd className="text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--border)', color: 'var(--text-subtle)' }}>Ctrl K</kbd>
       </button>
 
-      <div className="flex-1" />
-
-      {/* Streak */}
-      {streak > 0 && (
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 h-9 rounded-lg" style={{ background: 'var(--surface-hover)' }} title="Dias seguidos estudando">
-          <Flame size={15} style={{ color: 'var(--warning)' }} fill={streak >= 3 ? 'var(--warning)' : 'transparent'} />
-          <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{streak}</span>
-        </div>
-      )}
+      {/* Direita: streak + ações */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {streak > 0 && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 h-9 rounded-lg mr-1" style={{ background: 'var(--surface-hover)' }} title="Dias seguidos estudando">
+            <Flame size={15} style={{ color: 'var(--warning)' }} fill={streak >= 3 ? 'var(--warning)' : 'transparent'} />
+            <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{streak}</span>
+          </div>
+        )}
 
       <div ref={wrapRef} className="flex items-center gap-1">
         {/* Busca (mobile: só ícone) */}
         <button onClick={() => setSearchOpen(true)} className="sm:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }} aria-label="Buscar">
           <Search size={17} />
-        </button>
-
-        {/* Pomodoro */}
-        <button onClick={openPomodoro} className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-hover)]" style={{ color: pomodoroOpen ? 'var(--primary)' : 'var(--text-muted)', background: pomodoroOpen ? 'var(--primary-soft)' : undefined }} title="Pomodoro" aria-label="Pomodoro">
-          <Timer size={17} />
         </button>
 
         {/* Tema */}
@@ -221,13 +273,16 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
                   {notifs.map(n => {
                     const inner = (
                       <>
-                        <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>{n.icon}</span>
-                        <span className="flex-1 text-sm" style={{ color: 'var(--text)' }}>{n.text}</span>
+                        <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>{n.icon}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm" style={{ color: 'var(--text)' }}>{n.text}</span>
+                          {n.sub && <span className="block text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>{n.sub}</span>}
+                        </span>
                       </>
                     )
-                    const cls = 'flex items-center gap-3 pl-4 pr-2 py-2.5 flex-1 min-w-0'
+                    const cls = 'flex items-start gap-3 pl-4 pr-2 py-2.5 flex-1 min-w-0'
                     return (
-                      <div key={n.id} className="flex items-center hover:bg-[var(--surface-hover)] transition-colors">
+                      <div key={n.id} className="flex items-start hover:bg-[var(--surface-hover)] transition-colors">
                         {n.external ? (
                           <a href={n.href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setOpenMenu(null)}>{inner}</a>
                         ) : (
@@ -281,6 +336,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
