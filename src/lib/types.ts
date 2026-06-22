@@ -14,6 +14,7 @@ export interface Exam {
   category: string | null    // categoria/área (ver EXAM_CATEGORIES)
   banca: string | null       // banca organizadora (ex.: Cebraspe, FGV)
   edital_status: string | null // situação do edital (ver EDITAL_STATUS)
+  news_keyword: string | null  // palavra(s)-chave p/ casar notícias (separadas por vírgula)
   created_at: string
   updated_at: string
 }

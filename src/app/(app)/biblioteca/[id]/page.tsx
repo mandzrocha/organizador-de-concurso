@@ -41,6 +41,7 @@ export default function ConcursoDetailPage() {
   const [editing, setEditing] = useState(false)
   const [banca, setBanca] = useState('')
   const [status, setStatus] = useState('previsto')
+  const [keyword, setKeyword] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { load() }, [id])
@@ -73,6 +74,7 @@ export default function ConcursoDetailPage() {
     setExam(full)
     setBanca(full.banca || '')
     setStatus(full.edital_status || 'previsto')
+    setKeyword(full.news_keyword || '')
     setLoading(false)
   }
 
@@ -99,7 +101,7 @@ export default function ConcursoDetailPage() {
     if (!exam) return
     setSaving(true)
     try {
-      const patch = { banca: banca.trim() || null, edital_status: status }
+      const patch = { banca: banca.trim() || null, edital_status: status, news_keyword: keyword.trim() || null }
       const { error } = await supabase.from('exams').update(patch).eq('id', exam.id)
       if (error) throw error
       setExam({ ...exam, ...patch })
@@ -210,14 +212,21 @@ export default function ConcursoDetailPage() {
                 <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Situação do edital</label>
                 <Dropdown value={status} onChange={setStatus} options={EDITAL_STATUS.map(s => ({ value: s.key, label: s.label }))} />
               </div>
+              <div>
+                <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Palavra-chave para notícias</label>
+                <input type="text" placeholder="Ex: TJSP, Tribunal de Justiça de São Paulo" value={keyword} onChange={e => setKeyword(e.target.value)} />
+                <p className="text-[11px] mt-1" style={{ color: 'var(--text-subtle)' }}>
+                  Quando preenchida, só casa notícia que tenha exatamente isso no título (várias separadas por vírgula). Evita confundir com outro concurso.
+                </p>
+              </div>
               <div className="flex gap-2">
-                <button onClick={() => { setEditing(false); setBanca(exam.banca || ''); setStatus(exam.edital_status || 'previsto') }} className="flex-1 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
+                <button onClick={() => { setEditing(false); setBanca(exam.banca || ''); setStatus(exam.edital_status || 'previsto'); setKeyword(exam.news_keyword || '') }} className="flex-1 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Cancelar</button>
                 <button onClick={saveInfo} disabled={saving} className="flex-1 py-2 rounded-lg text-sm font-semibold disabled:opacity-40" style={{ background: 'var(--primary-strong)', color: '#fff' }}>{saving ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </div>
           ) : (
             <button onClick={() => setEditing(true)} className="text-sm inline-flex items-center gap-1.5" style={{ color: 'var(--primary-strong)' }}>
-              <Pencil size={13} /> Editar banca e situação do edital
+              <Pencil size={13} /> Editar banca, situação e palavra-chave de notícias
             </button>
           )}
         </div>

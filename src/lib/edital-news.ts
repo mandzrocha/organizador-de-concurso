@@ -64,6 +64,13 @@ function newsMatchesExam(exam: Exam, item: NewsItem): boolean {
   const hay = norm(item.title)
   const hayTokens = new Set(tokens(item.title))
 
+  // Palavra-chave manual: se definida, manda nela (frase exata no título).
+  // Várias separadas por vírgula = casa se QUALQUER uma aparecer.
+  const kw = (exam.news_keyword || '').trim()
+  if (kw) {
+    return kw.split(',').map(k => norm(k)).filter(k => k.length >= 2).some(k => hay.includes(k))
+  }
+
   if (exam.uf) {
     const uf = exam.uf.toLowerCase()
     const stateName = norm(UF_NAMES[exam.uf] || '')
