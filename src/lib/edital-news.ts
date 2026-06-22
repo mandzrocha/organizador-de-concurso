@@ -35,11 +35,18 @@ function tokens(s: string): string[] {
   return norm(s).split(/\s+/).filter(t => t.length >= 3 && !STOPWORDS.has(t))
 }
 
-// Tokens DISTINTIVOS de um concurso NACIONAL (tira os genéricos). Se sobrar
-// vazio (nome só com palavras comuns, ex.: "Câmara Municipal"), não casa.
+// Palavras geográficas (nomes de estados) — comuns demais para servir de
+// token distintivo de um concurso nacional (ex.: "sao", "paulo", "rio"
+// casariam "São Francisco", "Rio Branco"...).
+const GEO_TOKENS = new Set<string>(['sao', 'santa', 'santo'])
+for (const nm of Object.values(UF_NAMES)) for (const t of tokens(nm)) GEO_TOKENS.add(t)
+
+// Tokens DISTINTIVOS de um concurso NACIONAL (tira genéricos e geográficos).
+// Se sobrar vazio (nome só com palavras comuns, ex.: "Câmara Municipal" ou
+// "Tribunal de Justiça de São Paulo"), não casa nada.
 function strongExamTokens(exam: Exam): Set<string> {
   const all = [...tokens(exam.name), ...tokens(exam.organization || '')]
-  return new Set(all.filter(t => !WEAK_TOKENS.has(t)))
+  return new Set(all.filter(t => !WEAK_TOKENS.has(t) && !GEO_TOKENS.has(t)))
 }
 
 /**
@@ -51,9 +58,11 @@ function strongExamTokens(exam: Exam): Set<string> {
  * - Concurso NACIONAL: exige um token distintivo (INSS, Petrobras...).
  */
 function newsMatchesExam(exam: Exam, item: NewsItem): boolean {
-  const raw = item.title + ' ' + item.description
-  const hay = norm(raw)
-  const hayTokens = new Set(tokens(raw))
+  // Só o TÍTULO: é o assunto real da notícia. A descrição costuma ser um
+  // "resumão" que cita vários concursos e gera falso positivo (ex.: título
+  // sobre PREVCOM casando com TJSP só porque a descrição cita TJSP).
+  const hay = norm(item.title)
+  const hayTokens = new Set(tokens(item.title))
 
   if (exam.uf) {
     const uf = exam.uf.toLowerCase()
