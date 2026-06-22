@@ -452,6 +452,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+
+            {/* Horas por dia (no lado esquerdo para equilibrar a altura) */}
+            {data && data.allLogs.length > 0 && (
+              <HoursPerDayChart days={heatmap} />
+            )}
           </div>
 
           {/* Right column */}
@@ -580,11 +585,6 @@ export default function DashboardPage() {
           </div>
         </div>
         </>
-      )}
-
-      {/* Horas por dia */}
-      {data && data.allLogs.length > 0 && (
-        <HoursPerDayChart days={heatmap} />
       )}
 
       {/* Notícias relacionadas */}
