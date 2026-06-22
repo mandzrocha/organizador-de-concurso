@@ -71,13 +71,20 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const phrase = PHRASES[dayOfYear() % PHRASES.length]
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
-  }, [])
-
-  useEffect(() => {
+    // nome salvo localmente (fallback imediato)
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user-name') : null
     if (stored && stored !== 'Você') setName(stored)
+
+    if (!isSupabaseConfigured()) return
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email ?? null)
+      const meta: any = data.user?.user_metadata || {}
+      const n: string | undefined = meta.full_name || meta.name
+      if (n && n.trim()) {
+        setName(n.trim())
+        localStorage.setItem('user-name', n.trim()) // sincroniza com o Perfil
+      }
+    })
   }, [])
 
   useEffect(() => { loadNotifs(); loadStreak() }, [])
@@ -311,16 +318,19 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             title="Conta"
             aria-label="Menu da conta"
           >
-            {email ? email[0] : <User size={16} />}
+            {(name || email) ? (name || email)![0] : <User size={16} />}
           </button>
           {openMenu === 'profile' && (
-            <div className="absolute right-0 mt-1 w-60 rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
-              {email && (
-                <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-                  <p className="text-xs" style={{ color: 'var(--text-subtle)' }}>Conectado como</p>
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }} title={email}>{email}</p>
+            <div className="absolute right-0 mt-1 w-64 rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+              <div className="px-4 py-3.5 border-b flex items-center gap-3" style={{ borderColor: 'var(--border)' }}>
+                <span className="w-10 h-10 rounded-full flex items-center justify-center text-base font-semibold uppercase flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--primary-strong), var(--primary))', color: '#fff' }}>
+                  {(name || email || '?')[0]}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{name || 'Você'}</p>
+                  {email && <p className="text-xs truncate" style={{ color: 'var(--text-subtle)' }} title={email}>{email}</p>}
                 </div>
-              )}
+              </div>
               <div className="py-1">
                 <Link href="/profile" onClick={() => setOpenMenu(null)} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text)' }}>
                   <User size={15} style={{ color: 'var(--text-muted)' }} /> Meu perfil

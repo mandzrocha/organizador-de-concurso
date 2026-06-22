@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
-import { Mail, Lock, Loader2, GraduationCap, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Loader2, GraduationCap, CheckCircle2, Eye, EyeOff, User } from 'lucide-react'
 
 export default function LoginPage() {
   return (
@@ -20,6 +20,7 @@ function LoginForm() {
   const next = params.get('next') || '/dashboard'
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -61,12 +62,17 @@ function LoginForm() {
 
     try {
       if (mode === 'signup') {
+        const name = fullName.trim()
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+            data: { full_name: name },
+          },
         })
         if (error) throw error
+        if (name) localStorage.setItem('user-name', name)
         // Se a confirmação de e-mail estiver ligada, não há sessão ainda.
         if (data.session) {
           router.push(next)
@@ -129,6 +135,24 @@ function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        {mode === 'signup' && (
+          <div>
+            <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>Nome</label>
+            <div className="relative">
+              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+              <input
+                type="text"
+                required
+                autoComplete="name"
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                placeholder="Como quer ser chamado(a)"
+                style={{ paddingLeft: 36 }}
+              />
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="text-xs block mb-1.5" style={{ color: 'var(--text-muted)' }}>E-mail</label>
           <div className="relative">

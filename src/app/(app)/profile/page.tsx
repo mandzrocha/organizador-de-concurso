@@ -74,6 +74,8 @@ export default function ProfilePage() {
     if (trimmed) {
       localStorage.setItem('user-name', trimmed)
       setName(trimmed)
+      // sincroniza com o perfil do Supabase (aparece no header/menu)
+      if (isSupabaseConfigured()) supabase.auth.updateUser({ data: { full_name: trimmed } }).catch(() => {})
     }
     setEditing(false)
   }
