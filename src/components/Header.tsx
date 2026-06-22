@@ -9,11 +9,11 @@ import { getUserId } from '@/lib/auth'
 import { useTheme } from './ThemeProvider'
 import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
-import { getDismissed, alertId } from '@/lib/dismissed-alerts'
+import { getDismissed, dismissAlert, alertId } from '@/lib/dismissed-alerts'
 import { GlobalSearch } from './GlobalSearch'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
-import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame } from 'lucide-react'
+import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X } from 'lucide-react'
 
 interface Notif {
   id: string
@@ -21,6 +21,7 @@ interface Notif {
   text: string
   href: string
   external?: boolean
+  dismissKey?: string   // se preenchido, pode ser dispensada (marcada como lida)
 }
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
@@ -104,7 +105,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         for (const ex of watchOrPre) {
           const n = matches[ex.id]
           if (n && !dismissed.has(alertId(ex.id, n.link))) {
-            items.push({ id: 'edital-' + ex.id, icon: <FileText size={14} />, text: `Possível edital novo: ${ex.name}`, href: n.link, external: true })
+            items.push({ id: 'edital-' + ex.id, icon: <FileText size={14} />, text: `Possível edital novo: ${ex.name}`, href: n.link, external: true, dismissKey: alertId(ex.id, n.link) })
           }
         }
       }
@@ -112,6 +113,19 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
 
     setNotifs(items)
   }
+
+  function dismissNotif(n: Notif) {
+    if (!n.dismissKey) return
+    dismissAlert(n.dismissKey)
+    setNotifs(list => list.filter(x => x.id !== n.id))
+  }
+
+  function dismissAllNotifs() {
+    for (const n of notifs) if (n.dismissKey) dismissAlert(n.dismissKey)
+    setNotifs(list => list.filter(n => !n.dismissKey))
+  }
+
+  const dismissibleCount = notifs.filter(n => n.dismissKey).length
 
   async function signOut() {
     if (isSupabaseConfigured()) await supabase.auth.signOut()
@@ -184,7 +198,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           </button>
           {openMenu === 'bell' && (
             <div className="absolute right-0 mt-1 w-80 max-w-[90vw] rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
-              <div className="px-4 py-2.5 border-b text-sm font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>Notificações</div>
+              <div className="px-4 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: 'var(--border)' }}>
+                <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Notificações</span>
+                {dismissibleCount > 0 && (
+                  <button onClick={dismissAllNotifs} className="text-xs" style={{ color: 'var(--primary-strong)' }}>Marcar como lidas</button>
+                )}
+              </div>
               {notifs.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                   <Check size={20} className="mx-auto mb-1.5" style={{ color: 'var(--success)' }} />
@@ -199,11 +218,20 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
                         <span className="flex-1 text-sm" style={{ color: 'var(--text)' }}>{n.text}</span>
                       </>
                     )
-                    const cls = 'flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--surface-hover)] transition-colors'
-                    return n.external ? (
-                      <a key={n.id} href={n.href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setOpenMenu(null)}>{inner}</a>
-                    ) : (
-                      <Link key={n.id} href={n.href} className={cls} onClick={() => setOpenMenu(null)}>{inner}</Link>
+                    const cls = 'flex items-center gap-3 pl-4 pr-2 py-2.5 flex-1 min-w-0'
+                    return (
+                      <div key={n.id} className="flex items-center hover:bg-[var(--surface-hover)] transition-colors">
+                        {n.external ? (
+                          <a href={n.href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setOpenMenu(null)}>{inner}</a>
+                        ) : (
+                          <Link href={n.href} className={cls} onClick={() => setOpenMenu(null)}>{inner}</Link>
+                        )}
+                        {n.dismissKey && (
+                          <button onClick={() => dismissNotif(n)} className="w-7 h-7 mr-2 rounded-md flex items-center justify-center flex-shrink-0" style={{ color: 'var(--text-subtle)' }} title="Marcar como lida" aria-label="Dispensar">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>

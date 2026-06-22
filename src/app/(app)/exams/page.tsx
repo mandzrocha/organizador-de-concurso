@@ -57,8 +57,15 @@ export default function ExamsPage() {
   }, [exams, news, dismissed])
 
   function dismiss(examId: string, link: string) {
-    dismissAlert(alertId(examId, link))
-    setDismissed(new Set([...dismissed, alertId(examId, link)]))
+    const key = alertId(examId, link)
+    dismissAlert(key)
+    setDismissed(prev => new Set(prev).add(key))
+  }
+
+  function dismissAllAlerts() {
+    const keys = Object.entries(editalAlerts).map(([examId, n]) => alertId(examId, n.link))
+    for (const k of keys) dismissAlert(k)
+    setDismissed(prev => { const s = new Set(prev); keys.forEach(k => s.add(k)); return s })
   }
 
   async function loadExams() {
@@ -174,6 +181,9 @@ export default function ExamsPage() {
           <div className="flex items-center gap-2 mb-2">
             <Bell size={15} style={{ color: 'var(--primary-strong)' }} />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-soft-text)' }}>Pode ter saído edital</h3>
+            <button onClick={dismissAllAlerts} className="ml-auto text-xs" style={{ color: 'var(--primary-strong)' }}>
+              Dispensar todos
+            </button>
           </div>
           <div className="space-y-1.5">
             {exams.filter(e => editalAlerts[e.id]).map(e => {
