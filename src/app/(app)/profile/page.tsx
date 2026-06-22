@@ -1,23 +1,35 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/config'
 import { getUserId } from '@/lib/auth'
 import { PageSkeleton } from '@/components/Skeleton'
+import { Avatar } from '@/components/Avatar'
+import { useToast } from '@/components/Toast'
 import { format, parseISO, subDays, startOfDay, eachDayOfInterval, isSameDay, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { User, Clock, Flame, BookMarked, CheckCircle2, RotateCw, Trash2, Pencil } from 'lucide-react'
+import { Clock, Flame, BookMarked, RotateCw, Pencil, Camera, Loader2, Target, Briefcase, Phone, Hourglass } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 
 interface LogRow { studied_at: string; duration_minutes: number | null; activity_type: string }
 
 export default function ProfilePage() {
   const supabase = createClient()
+  const toast = useToast()
   const { theme, toggle } = useTheme()
   const [name, setName] = useState<string>('')
   const [editing, setEditing] = useState(false)
   const [tempName, setTempName] = useState('')
+  // Perfil estendido (Supabase user_metadata)
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [focusExam, setFocusExam] = useState('')
+  const [focusRole, setFocusRole] = useState('')
+  const [goalHours, setGoalHours] = useState('')
+  const [phone, setPhone] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [logs, setLogs] = useState<LogRow[]>([])
   const [examCount, setExamCount] = useState(0)
   const [subjectCount, setSubjectCount] = useState(0)
@@ -27,10 +39,25 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<7 | 30 | 90>(30)
 
-  // Load name from localStorage
+  // Load name from localStorage (fallback imediato)
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user-name') : null
     setName(stored || 'Você')
+  }, [])
+
+  // Carrega perfil estendido do Supabase (user_metadata)
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    supabase.auth.getUser().then(({ data }) => {
+      const m: any = data.user?.user_metadata || {}
+      const n = m.full_name || m.name
+      if (n && n.trim()) setName(n.trim())
+      setAvatarUrl(m.avatar_url || m.picture || '')
+      setFocusExam(m.focus_exam || '')
+      setFocusRole(m.focus_role || '')
+      setGoalHours(m.study_goal_hours ? String(m.study_goal_hours) : '')
+      setPhone(m.phone || '')
+    })
   }, [])
 
   // Load stats
@@ -78,6 +105,48 @@ export default function ProfilePage() {
       if (isSupabaseConfigured()) supabase.auth.updateUser({ data: { full_name: trimmed } }).catch(() => {})
     }
     setEditing(false)
+  }
+
+  async function uploadAvatar(file: File) {
+    setUploadingAvatar(true)
+    try {
+      const userId = await getUserId(supabase)
+      if (!userId) { toast.error('Sua sessão expirou.'); return }
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${userId}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = `${data.publicUrl}?t=${Date.now()}` // cache-bust
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: url } })
+      if (error) throw error
+      setAvatarUrl(url)
+      toast.success('Foto atualizada!')
+    } catch (e: any) {
+      toast.error('Erro ao enviar foto. Rode supabase-avatars.sql no Supabase. (' + (e?.message || '') + ')')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function saveProfile() {
+    setSavingProfile(true)
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          focus_exam: focusExam.trim() || null,
+          focus_role: focusRole.trim() || null,
+          study_goal_hours: goalHours ? Number(goalHours) : null,
+          phone: phone.trim() || null,
+        },
+      })
+      if (error) throw error
+      toast.success('Perfil atualizado!')
+    } catch (e: any) {
+      toast.error('Erro ao salvar: ' + (e?.message || 'tente novamente'))
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   // Build daily totals
@@ -131,11 +200,18 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="ef-card p-6">
         <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, var(--primary-strong), var(--primary))', color: '#fff' }}
-          >
-            {name.charAt(0).toUpperCase()}
+          <div className="relative flex-shrink-0">
+            <Avatar url={avatarUrl} label={name} size={64} />
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center border-2"
+              style={{ background: 'var(--surface)', borderColor: 'var(--surface)', color: 'var(--text-muted)', boxShadow: 'var(--shadow-sm)' }}
+              title="Trocar foto"
+              aria-label="Trocar foto"
+            >
+              {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = '' }} />
           </div>
           <div className="flex-1 min-w-0">
             {editing ? (
@@ -170,6 +246,31 @@ export default function ProfilePage() {
             style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
           >
             Tema: {theme === 'dark' ? 'Escuro' : 'Claro'}
+          </button>
+        </div>
+      </div>
+
+      {/* Sobre você */}
+      <div className="ef-card p-5">
+        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text)' }}>Sobre você</h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Personalize sua experiência. Tudo opcional.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field icon={<Target size={14} />} label="Concurso-foco">
+            <input type="text" placeholder="Ex: TJSP Escrevente" value={focusExam} onChange={e => setFocusExam(e.target.value)} />
+          </Field>
+          <Field icon={<Briefcase size={14} />} label="Cargo pretendido">
+            <input type="text" placeholder="Ex: Escrevente Técnico" value={focusRole} onChange={e => setFocusRole(e.target.value)} />
+          </Field>
+          <Field icon={<Hourglass size={14} />} label="Meta de estudo (horas/dia)">
+            <input type="number" min="0" max="24" step="0.5" placeholder="Ex: 4" value={goalHours} onChange={e => setGoalHours(e.target.value)} />
+          </Field>
+          <Field icon={<Phone size={14} />} label="WhatsApp">
+            <input type="tel" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(e.target.value)} />
+          </Field>
+        </div>
+        <div className="flex justify-end mt-4">
+          <button onClick={saveProfile} disabled={savingProfile} className="px-5 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
+            {savingProfile && <Loader2 size={14} className="animate-spin" />} Salvar
           </button>
         </div>
       </div>
@@ -264,6 +365,17 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+        <span style={{ color: 'var(--primary)' }}>{icon}</span> {label}
+      </label>
+      {children}
     </div>
   )
 }

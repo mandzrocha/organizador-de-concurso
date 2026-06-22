@@ -11,6 +11,7 @@ import { useDataChanged } from '@/lib/events'
 import { matchEditalNews } from '@/lib/edital-news'
 import { getDismissed, dismissAlert, alertId } from '@/lib/dismissed-alerts'
 import { GlobalSearch } from './GlobalSearch'
+import { Avatar } from './Avatar'
 import type { NewsItem } from '@/app/api/news/route'
 import type { Exam } from '@/lib/types'
 import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search, Flame, X } from 'lucide-react'
@@ -62,6 +63,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { theme, toggle } = useTheme()
   const [email, setEmail] = useState<string | null>(null)
   const [name, setName] = useState<string>('')
+  const [avatarUrl, setAvatarUrl] = useState<string>('')
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [streak, setStreak] = useState(0)
   const [openMenu, setOpenMenu] = useState<null | 'bell' | 'profile'>(null)
@@ -84,6 +86,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         setName(n.trim())
         localStorage.setItem('user-name', n.trim()) // sincroniza com o Perfil
       }
+      setAvatarUrl(meta.avatar_url || meta.picture || '')
     })
   }, [])
 
@@ -313,19 +316,16 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <div className="relative">
           <button
             onClick={() => setOpenMenu(m => m === 'profile' ? null : 'profile')}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold uppercase ml-1 transition-transform hover:scale-105"
-            style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
+            className="ml-1 rounded-full transition-transform hover:scale-105"
             title="Conta"
             aria-label="Menu da conta"
           >
-            {(name || email) ? (name || email)![0] : <User size={16} />}
+            <Avatar url={avatarUrl} label={name || email} size={36} />
           </button>
           {openMenu === 'profile' && (
             <div className="absolute right-0 mt-1 w-64 rounded-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
               <div className="px-4 py-3.5 border-b flex items-center gap-3" style={{ borderColor: 'var(--border)' }}>
-                <span className="w-10 h-10 rounded-full flex items-center justify-center text-base font-semibold uppercase flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--primary-strong), var(--primary))', color: '#fff' }}>
-                  {(name || email || '?')[0]}
-                </span>
+                <Avatar url={avatarUrl} label={name || email} size={40} />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{name || 'Você'}</p>
                   {email && <p className="text-xs truncate" style={{ color: 'var(--text-subtle)' }} title={email}>{email}</p>}
