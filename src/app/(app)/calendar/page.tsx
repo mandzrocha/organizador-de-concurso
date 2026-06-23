@@ -170,21 +170,21 @@ export default function CalendarPage() {
 
   return (
     <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronLeft size={16} /></button>
-          <h1 className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button onClick={() => setWeekStart(d => addDays(d, -7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center flex-shrink-0" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronLeft size={16} /></button>
+          <h1 className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text)' }}>
             {format(weekDays[0], "d MMM", { locale: ptBR })} — {format(weekDays[6], "d MMM yyyy", { locale: ptBR })}
           </h1>
-          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronRight size={16} /></button>
-          <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-2 py-1 rounded" style={{ color: 'var(--primary-strong)' }}>
+          <button onClick={() => setWeekStart(d => addDays(d, 7))} className="px-2.5 py-1.5 rounded-lg text-sm border flex items-center flex-shrink-0" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}><ChevronRight size={16} /></button>
+          <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-2 py-1 rounded flex-shrink-0" style={{ color: 'var(--primary-strong)' }}>
             Hoje
           </button>
         </div>
         <button
           onClick={() => { setGenError(''); setShowWizard(true) }}
           disabled={generating}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}
         >
           <Sparkles size={14} /> {generating ? 'Gerando...' : 'Gerar cronograma com IA'}

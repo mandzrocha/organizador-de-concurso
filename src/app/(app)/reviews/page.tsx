@@ -205,7 +205,7 @@ export default function ReviewsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-1 border-b overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0" style={{ borderColor: 'var(--border)' }}>
         {([
           { key: 'pending'  as const, label: `Para revisar (${overdue.length + dueToday.length})` },
           { key: 'upcoming' as const, label: `Próximas (${upcoming.length})` },
@@ -215,7 +215,7 @@ export default function ReviewsPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className="px-4 py-2 text-sm font-medium transition-colors"
+            className="px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
             style={{
               color: tab === t.key ? 'var(--primary)' : 'var(--text-muted)',
               borderBottom: tab === t.key ? '2px solid var(--primary)' : '2px solid transparent',

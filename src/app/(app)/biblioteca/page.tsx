@@ -208,34 +208,36 @@ export default function BibliotecaPage() {
 
 function CatalogCard({ exam, enrolling, onEnroll, onOpen }: { exam: CatalogExam; enrolling: boolean; onEnroll: () => void; onOpen: () => void }) {
   return (
-    <div className="ef-card p-5 flex items-start gap-4 ef-hover-lift cursor-pointer" onClick={onOpen} title="Ver detalhes">
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
-        <BookOpen size={20} strokeWidth={1.75} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-          {exam.category && EXAM_CATEGORY_LABELS[exam.category] && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>{EXAM_CATEGORY_LABELS[exam.category]}</span>
-          )}
-          {exam.uf && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.uf}</span>
-          )}
-          <EditalStatusBadge status={exam.edital_status} />
+    <div className="ef-card p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 ef-hover-lift cursor-pointer" onClick={onOpen} title="Ver detalhes">
+      <div className="flex items-start gap-4 flex-1 min-w-0">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+          <BookOpen size={20} strokeWidth={1.75} />
         </div>
-        <h3 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h3>
-        <div className="flex items-center gap-x-4 gap-y-0.5 mt-1 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
-          {exam.organization && <span className="truncate">{exam.organization}</span>}
-          {exam.banca && <span>Banca: {exam.banca}</span>}
-          <span>{exam.subject_count} matérias · {exam.topic_count} tópicos</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            {exam.category && EXAM_CATEGORY_LABELS[exam.category] && (
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-text)' }}>{EXAM_CATEGORY_LABELS[exam.category]}</span>
+            )}
+            {exam.uf && (
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}>{exam.uf}</span>
+            )}
+            <EditalStatusBadge status={exam.edital_status} />
+          </div>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{exam.name}</h3>
+          <div className="flex items-center gap-x-4 gap-y-0.5 mt-1 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+            {exam.organization && <span className="truncate">{exam.organization}</span>}
+            {exam.banca && <span>Banca: {exam.banca}</span>}
+            <span>{exam.subject_count} matérias · {exam.topic_count} tópicos</span>
+          </div>
         </div>
       </div>
-      <div className="flex-shrink-0 self-center" onClick={e => e.stopPropagation()}>
+      <div className="flex-shrink-0 sm:self-center w-full sm:w-auto" onClick={e => e.stopPropagation()}>
         {exam.enrolled ? (
-          <button onClick={onEnroll} className="text-xs px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+          <button onClick={onEnroll} className="w-full sm:w-auto text-xs px-3 py-2 rounded-lg border inline-flex items-center justify-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
             <Check size={12} style={{ color: 'var(--success)' }} /> Estudando
           </button>
         ) : (
-          <button onClick={onEnroll} disabled={enrolling} className="text-xs px-3 py-2 rounded-lg font-medium inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
+          <button onClick={onEnroll} disabled={enrolling} className="w-full sm:w-auto text-xs px-3 py-2 rounded-lg font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--primary-strong)', color: '#fff' }}>
             <Rocket size={12} /> {enrolling ? 'Inscrevendo...' : 'Estudar este'}
           </button>
         )}
