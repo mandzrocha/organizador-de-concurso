@@ -197,7 +197,7 @@ export default function ReviewsPage() {
       </div>
 
       {/* Overview cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Em atraso" value={overdue.length} color="var(--danger)" soft="var(--danger-soft)" onClick={() => setTab('pending')} />
         <StatCard label="Hoje" value={dueToday.length} color="var(--warning)" soft="var(--warning-soft)" onClick={() => setTab('pending')} />
         <StatCard label="Próximas" value={upcoming.length} color="var(--primary)" soft="var(--primary-soft)" onClick={() => setTab('upcoming')} />
@@ -205,7 +205,7 @@ export default function ReviewsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-1 border-b overflow-x-auto no-scrollbar -mx-6 px-6 sm:mx-0 sm:px-0" style={{ borderColor: 'var(--border)' }}>
         {([
           { key: 'pending'  as const, label: `Para revisar (${overdue.length + dueToday.length})` },
           { key: 'upcoming' as const, label: `Próximas (${upcoming.length})` },
@@ -408,15 +408,21 @@ export default function ReviewsPage() {
 }
 
 function StatCard({ label, value, color, soft, onClick }: { label: string; value: number; color: string; soft: string; onClick?: () => void }) {
+  const active = value > 0
   return (
     <button
       onClick={onClick}
       disabled={!onClick}
-      className="rounded-xl border p-4 text-left transition-all"
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)', cursor: onClick ? 'pointer' : 'default' }}
+      className="ef-card p-3 sm:p-4 text-left transition-all flex items-center gap-3 disabled:cursor-default"
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-2xl font-bold mt-1" style={{ color: value > 0 ? color : 'var(--text-subtle)' }}>{value}</p>
+      <span
+        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold tabular-nums"
+        style={{ background: active ? soft : 'var(--surface-hover)', color: active ? color : 'var(--text-subtle)' }}
+      >
+        {value}
+      </span>
+      <span className="text-xs font-medium leading-tight min-w-0" style={{ color: 'var(--text-muted)' }}>{label}</span>
     </button>
   )
 }

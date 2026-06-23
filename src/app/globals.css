@@ -164,6 +164,10 @@ button { cursor: pointer; transition: all 0.15s ease; }
   box-shadow: var(--shadow-sm);
 }
 
+/* Esconde a barra de scroll mas mantém o scroll funcionando (abas roláveis no mobile) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Realce suave ao passar o mouse em cards clicáveis */
 .ef-hover-lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
 .ef-hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
