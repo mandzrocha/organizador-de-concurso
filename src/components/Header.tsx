@@ -18,20 +18,50 @@ import { Menu, Bell, Sun, Moon, LogOut, User, RotateCw, FileText, Check, Search,
 
 // Frase motivacional do dia (muda a cada dia, estável dentro do dia)
 const PHRASES = [
+  // Constância e processo
   'Cada página estudada hoje é uma vaga mais perto.',
-  'Disciplina vence talento quando o talento não tem disciplina.',
-  'O edital não espera — mas você está se preparando.',
-  'Constância vale mais que intensidade. Siga firme.',
+  'Constância vale mais que intensidade. Siga no seu ritmo.',
   'Um pouco todo dia faz uma aprovação no fim do ano.',
-  'A prova é dura, mas a sua rotina está te blindando.',
-  'Quem revisa hoje, lembra na hora da prova.',
+  'Não precisa ser perfeito, só precisa ser constante.',
   'Foco no processo: a aprovação é consequência.',
+  'Pequenos passos diários viram grandes conquistas.',
+  'O segredo não é a pressa, é não parar.',
+  'Cada dia de estudo é um tijolo na sua aprovação.',
+  'Confie no acúmulo: tudo que você estuda fica.',
+  'Manter o ritmo já é uma vitória do dia.',
+  // Progresso e autoconfiança
   'Você já chegou mais longe do que ontem.',
-  'Resolva mais uma questão. É sempre a próxima que conta.',
-  'Não precisa ser perfeito, precisa ser constante.',
-  'O concurso dos seus sonhos cabe na sua rotina.',
+  'Olhe o quanto você já avançou — e continue.',
+  'Cada revisão te deixa mais preparado do que estava.',
+  'Você é mais capaz do que imagina hoje.',
+  'O esforço de hoje vira segurança na hora da prova.',
+  'Acredite: você está construindo a sua aprovação.',
+  'Seu progresso é real, mesmo nos dias mais leves.',
+  'Tudo que você aprendeu continua com você.',
+  // Aprender com erros (positivo)
   'Cada erro corrigido hoje é um acerto garantido amanhã.',
+  'Errar resolvendo questão é aprender de verdade.',
+  'Todo erro entendido é um ponto a mais na prova.',
+  'Quem revisa hoje, lembra na hora certa.',
+  // Foco no objetivo
+  'O concurso dos seus sonhos cabe na sua rotina.',
   'A vaga é sua. Vá buscá-la, uma matéria por vez.',
+  'Estude pelo seu futuro — ele agradece.',
+  'Sua dedicação de hoje abre a porta de amanhã.',
+  'Mantenha o foco no que te move: a sua meta.',
+  'A aprovação começa muito antes da prova — começa agora.',
+  // Cuidado e equilíbrio (incentivo gentil)
+  'Estude com calma: aprender bem vale mais que correr.',
+  'Respeite seu ritmo — constância sustentável vence.',
+  'Descansar também faz parte de estudar bem.',
+  'Comece pequeno: uma questão já move o seu dia.',
+  'Faça o que é possível hoje. Amanhã você soma mais.',
+  'Capriche no que der pra fazer — já é o suficiente.',
+  // Motivação direta
+  'Continue: a vaga não tem o seu nome por acaso.',
+  'Você está mais perto da aprovação do que pensa.',
+  'Hoje é mais um dia para chegar lá. Bora!',
+  'O seu eu do futuro vai agradecer pelo estudo de hoje.',
 ]
 
 function dayOfYear(d = new Date()): number {
