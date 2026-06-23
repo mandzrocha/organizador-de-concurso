@@ -33,7 +33,7 @@ export default function EditExamPage() {
   const [subjectCount, setSubjectCount] = useState<number>(0)
 
   // Info form
-  const [form, setForm] = useState({ name: '', organization: '', exam_date: '', description: '', is_primary: false, pre_edital: false, is_watching: false })
+  const [form, setForm] = useState({ name: '', organization: '', exam_date: '', description: '', news_keyword: '', is_primary: false, pre_edital: false, is_watching: false })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
@@ -91,6 +91,7 @@ export default function EditExamPage() {
       organization: data.organization || '',
       exam_date: data.exam_date || '',
       description: data.description || '',
+      news_keyword: data.news_keyword || '',
       is_primary: enr?.is_primary ?? false,
       is_watching: enr?.is_watching ?? false,
       pre_edital: !data.exam_date,
@@ -108,6 +109,7 @@ export default function EditExamPage() {
       name: form.name,
       organization: form.organization || null,
       description: form.description || null,
+      news_keyword: form.news_keyword.trim() || null,
       exam_date: form.is_watching || form.pre_edital ? null : (form.exam_date || null),
     }).eq('id', id)
 
@@ -412,6 +414,13 @@ export default function EditExamPage() {
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Órgão / Banca</label>
             <input type="text" value={form.organization} onChange={e => setForm(p => ({ ...p, organization: e.target.value }))} placeholder="Ex: TJSP, TRF1, Vunesp..." />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Palavra-chave para notícias</label>
+            <input type="text" value={form.news_keyword} onChange={e => setForm(p => ({ ...p, news_keyword: e.target.value }))} placeholder="Ex: TJSP, Tribunal de Justiça de São Paulo" />
+            <p className="text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
+              Quando preenchida, só entram notícias cujo <strong>título</strong> contenha exatamente isto — nunca mais um edital de outro concurso aqui. Várias separadas por vírgula = casa qualquer uma. Em branco = apuração automática.
+            </p>
           </div>
 
           {!form.is_watching && (
