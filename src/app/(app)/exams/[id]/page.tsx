@@ -443,24 +443,24 @@ export default function ExamDetailPage() {
       </div>
 
       {/* Progress overview */}
-      <div className="ef-card p-6 grid grid-cols-3 gap-6">
+      <div className="ef-card p-6 grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
         <div>
-          <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Progresso geral</p>
-          <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{overallPercent}<span className="text-lg" style={{ color: 'var(--text-muted)' }}>%</span></p>
+          <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Progresso geral</p>
+          <p className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>{overallPercent}<span className="text-lg" style={{ color: 'var(--text-muted)' }}>%</span></p>
           <div className="h-2 rounded-full mt-3 overflow-hidden" style={{ background: 'var(--surface-hover)' }}>
             <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${overallPercent}%`, background: 'linear-gradient(90deg, var(--primary-strong), var(--primary))' }} />
           </div>
         </div>
-        <div className="border-l pl-6" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Matérias</p>
-          <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{subjects.length}</p>
+        <div className="border-t pt-5 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-6" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Matérias</p>
+          <p className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>{subjects.length}</p>
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-subtle)' }}>
             {subjects.filter(s => s.completedAt).length} concluídas
           </p>
         </div>
-        <div className="border-l pl-6" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Tópicos</p>
-          <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{totalTopics}</p>
+        <div className="border-t pt-5 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-6" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Tópicos</p>
+          <p className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>{totalTopics}</p>
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-subtle)' }}>para estudar</p>
         </div>
       </div>

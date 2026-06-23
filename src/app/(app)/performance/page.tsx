@@ -10,6 +10,7 @@ import { Subject, Topic } from '@/lib/types'
 import { format, parseISO, startOfWeek, differenceInCalendarWeeks, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, PenLine, BarChart3 } from 'lucide-react'
+import { StatCard } from '@/components/StatCard'
 
 interface QLog {
   total_questions: number
@@ -138,8 +139,8 @@ export default function PerformancePage() {
           <>
           {/* Métricas grandes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <MetricCard icon={<PenLine size={18} />} label="Questões resolvidas" value={totals.questions.toLocaleString('pt-BR')} accent="var(--primary)" soft="var(--primary-soft)" />
-            <MetricCard
+            <StatCard icon={<PenLine size={18} />} label="Questões resolvidas" value={totals.questions.toLocaleString('pt-BR')} accent="var(--primary)" soft="var(--primary-soft)" />
+            <StatCard
               icon={<Target size={18} />}
               label="Acerto geral"
               value={`${totals.pct}%`}
@@ -147,7 +148,7 @@ export default function PerformancePage() {
               soft={totals.pct >= PASS ? 'var(--success-soft)' : 'var(--warning-soft)'}
               sub={`${totals.correct.toLocaleString('pt-BR')} acertos`}
             />
-            <MetricCard icon={<CheckCircle2 size={18} />} label="Matérias avaliadas" value={String(bySubject.length)} accent="var(--text-muted)" soft="var(--surface-hover)" />
+            <StatCard icon={<CheckCircle2 size={18} />} label="Matérias avaliadas" value={String(bySubject.length)} accent="var(--text-muted)" soft="var(--surface-hover)" />
           </div>
 
           {/* Evolução */}
@@ -241,17 +242,6 @@ function FilterBar({ exams, examFilter, setExamFilter, period, setPeriod }: {
           {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
         </select>
       )}
-    </div>
-  )
-}
-
-function MetricCard({ icon, label, value, sub, accent, soft }: { icon: React.ReactNode; label: string; value: string; sub?: string; accent: string; soft: string }) {
-  return (
-    <div className="ef-card p-5">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: soft, color: accent }}>{icon}</div>
-      <p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--text)' }}>{value}</p>
-      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>{sub}</p>}
     </div>
   )
 }

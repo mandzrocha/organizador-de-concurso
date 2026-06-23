@@ -9,8 +9,9 @@ import { Avatar } from '@/components/Avatar'
 import { useToast } from '@/components/Toast'
 import { format, parseISO, subDays, startOfDay, eachDayOfInterval, isSameDay, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Clock, Flame, BookMarked, RotateCw, Pencil, Camera, Loader2, Target, Briefcase, Phone, Hourglass } from 'lucide-react'
+import { Clock, Flame, BookMarked, RotateCw, Pencil, Camera, Loader2, Target, Briefcase, Phone, Hourglass, GraduationCap, Library, ListChecks } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
+import { StatCard } from '@/components/StatCard'
 
 interface LogRow { studied_at: string; duration_minutes: number | null; activity_type: string }
 
@@ -277,10 +278,10 @@ export default function ProfilePage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Clock} label="Tempo total" value={`${totalHours}h ${totalRemMin}min`} note={`últimos ${range} dias`} />
-        <StatCard icon={Flame} label="Sequência" value={`${streak}d`} note={streak > 0 ? 'dias seguidos' : 'comece hoje'} highlight={streak >= 7} />
-        <StatCard icon={BookMarked} label="Tópicos" value={`${completedTopics}/${topicCount}`} note="concluídos" />
-        <StatCard icon={RotateCw} label="Revisões" value={`${reviewCount}`} note="feitas no total" />
+        <StatCard icon={<Clock size={18} />} label="Tempo total" value={`${totalHours}h ${totalRemMin}min`} sub={`últimos ${range} dias`} accent="var(--primary)" soft="var(--primary-soft)" />
+        <StatCard icon={<Flame size={18} />} label="Sequência" value={`${streak}d`} sub={streak > 0 ? 'dias seguidos' : 'comece hoje'} accent="var(--warning)" soft="var(--warning-soft)" dim={streak === 0} />
+        <StatCard icon={<BookMarked size={18} />} label="Tópicos" value={`${completedTopics}/${topicCount}`} sub="concluídos" accent="var(--success)" soft="var(--success-soft)" />
+        <StatCard icon={<RotateCw size={18} />} label="Revisões" value={`${reviewCount}`} sub="feitas no total" accent="var(--primary)" soft="var(--primary-soft)" dim={reviewCount === 0} />
       </div>
 
       {/* Daily chart */}
@@ -345,24 +346,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Overall stats */}
-      <div className="ef-card p-5">
-        <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>Seu acervo</h2>
-        <div className="grid grid-cols-3 gap-6">
-          <div>
-            <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Concursos</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{examCount}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>em estudo ativo</p>
-          </div>
-          <div className="border-l pl-6" style={{ borderColor: 'var(--border)' }}>
-            <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Matérias</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{subjectCount}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>cadastradas</p>
-          </div>
-          <div className="border-l pl-6" style={{ borderColor: 'var(--border)' }}>
-            <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Tópicos</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>{topicCount}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>no total</p>
-          </div>
+      <div>
+        <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--text)' }}>Seu acervo</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatCard icon={<GraduationCap size={18} />} label="Concursos" value={examCount} sub="em estudo ativo" accent="var(--primary)" soft="var(--primary-soft)" dim={examCount === 0} />
+          <StatCard icon={<Library size={18} />} label="Matérias" value={subjectCount} sub="cadastradas" accent="var(--primary)" soft="var(--primary-soft)" dim={subjectCount === 0} />
+          <StatCard icon={<ListChecks size={18} />} label="Tópicos" value={topicCount} sub="no total" accent="var(--primary)" soft="var(--primary-soft)" dim={topicCount === 0} />
         </div>
       </div>
     </div>
@@ -376,26 +365,6 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
         <span style={{ color: 'var(--primary)' }}>{icon}</span> {label}
       </label>
       {children}
-    </div>
-  )
-}
-
-function StatCard({ icon: Icon, label, value, note, highlight }: { icon: any; label: string; value: string; note?: string; highlight?: boolean }) {
-  return (
-    <div
-      className="rounded-xl border p-4"
-      style={{
-        background: highlight ? 'var(--primary-soft)' : 'var(--surface)',
-        borderColor: highlight ? 'var(--primary)' : 'var(--border)',
-        boxShadow: 'var(--shadow-sm)',
-      }}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon size={14} style={{ color: highlight ? 'var(--primary)' : 'var(--text-muted)' }} />
-        <p className="text-xs uppercase tracking-wider" style={{ color: highlight ? 'var(--primary-soft-text)' : 'var(--text-muted)' }}>{label}</p>
-      </div>
-      <p className="text-2xl font-bold tabular-nums" style={{ color: highlight ? 'var(--primary-soft-text)' : 'var(--text)' }}>{value}</p>
-      {note && <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>{note}</p>}
     </div>
   )
 }

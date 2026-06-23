@@ -12,6 +12,7 @@ import { Exam, MockExam } from '@/lib/types'
 import { format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, X, Trophy, Target, TrendingUp, Trash2, Pencil, Calendar, AlertTriangle } from 'lucide-react'
+import { StatCard } from '@/components/StatCard'
 
 const PASS = 70 // linha de corte de "bom"
 type Period = 30 | 90 | 180 | 'all'
@@ -144,9 +145,9 @@ export default function SimuladosPage() {
           {/* Métricas */}
           {stats && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Metric icon={<Target size={18} />} label="Média de acerto" value={`${stats.avg}%`} accent={stats.avg >= PASS ? 'var(--success)' : 'var(--warning)'} soft={stats.avg >= PASS ? 'var(--success-soft)' : 'var(--warning-soft)'} />
-              <Metric icon={<Trophy size={18} />} label="Melhor resultado" value={`${stats.best}%`} accent="var(--primary)" soft="var(--primary-soft)" />
-              <Metric icon={<TrendingUp size={18} />} label="Simulados feitos" value={String(stats.count)} accent="var(--text-muted)" soft="var(--surface-hover)" sub={`${stats.totalQ.toLocaleString('pt-BR')} questões`} />
+              <StatCard icon={<Target size={18} />} label="Média de acerto" value={`${stats.avg}%`} accent={stats.avg >= PASS ? 'var(--success)' : 'var(--warning)'} soft={stats.avg >= PASS ? 'var(--success-soft)' : 'var(--warning-soft)'} />
+              <StatCard icon={<Trophy size={18} />} label="Melhor resultado" value={`${stats.best}%`} accent="var(--primary)" soft="var(--primary-soft)" />
+              <StatCard icon={<TrendingUp size={18} />} label="Simulados feitos" value={String(stats.count)} accent="var(--text-muted)" soft="var(--surface-hover)" sub={`${stats.totalQ.toLocaleString('pt-BR')} questões`} />
             </div>
           )}
 
@@ -234,17 +235,6 @@ function FilterBar({ exams, examFilter, setExamFilter, period, setPeriod }: {
           {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
         </select>
       )}
-    </div>
-  )
-}
-
-function Metric({ icon, label, value, sub, accent, soft }: { icon: React.ReactNode; label: string; value: string; sub?: string; accent: string; soft: string }) {
-  return (
-    <div className="ef-card p-5">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: soft, color: accent }}>{icon}</div>
-      <p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--text)' }}>{value}</p>
-      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-subtle)' }}>{sub}</p>}
     </div>
   )
 }

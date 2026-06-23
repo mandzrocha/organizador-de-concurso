@@ -12,8 +12,9 @@ import { PageSkeleton } from '@/components/Skeleton'
 import { useDataChanged } from '@/lib/events'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { AlertTriangle, AlertCircle, PartyPopper, RotateCw, Clock, ArrowRight, ArrowLeft, Check, AlarmClock, CalendarCheck, CalendarClock, Layers } from 'lucide-react'
 import { ActivityIcon } from '@/lib/activity-icons'
+import { StatCard } from '@/components/StatCard'
 
 type RevWithTopic = RevisionSchedule & { topic: Topic & { subject: Subject; exams?: { name: string; is_primary: boolean }[] } }
 type Tab = 'pending' | 'upcoming' | 'history' | 'stats'
@@ -198,10 +199,10 @@ export default function ReviewsPage() {
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Em atraso" value={overdue.length} color="var(--danger)" soft="var(--danger-soft)" onClick={() => setTab('pending')} />
-        <StatCard label="Hoje" value={dueToday.length} color="var(--warning)" soft="var(--warning-soft)" onClick={() => setTab('pending')} />
-        <StatCard label="Próximas" value={upcoming.length} color="var(--primary)" soft="var(--primary-soft)" onClick={() => setTab('upcoming')} />
-        <StatCard label="Total ativo" value={all.length} color="var(--text-muted)" soft="var(--surface-hover)" />
+        <StatCard icon={<AlarmClock size={18} />} label="Em atraso" value={overdue.length} accent="var(--danger)" soft="var(--danger-soft)" dim={overdue.length === 0} onClick={() => setTab('pending')} />
+        <StatCard icon={<CalendarCheck size={18} />} label="Hoje" value={dueToday.length} accent="var(--warning)" soft="var(--warning-soft)" dim={dueToday.length === 0} onClick={() => setTab('pending')} />
+        <StatCard icon={<CalendarClock size={18} />} label="Próximas" value={upcoming.length} accent="var(--primary)" soft="var(--primary-soft)" dim={upcoming.length === 0} onClick={() => setTab('upcoming')} />
+        <StatCard icon={<Layers size={18} />} label="Total ativo" value={all.length} accent="var(--text)" soft="var(--surface-hover)" dim={all.length === 0} />
       </div>
 
       {/* Tabs */}
@@ -404,26 +405,6 @@ export default function ReviewsPage() {
       {/* Modal */}
       {doing && <ReviewModal rev={doing} saving={saving} onCancel={() => setDoing(null)} onSubmit={submitReview} />}
     </div>
-  )
-}
-
-function StatCard({ label, value, color, soft, onClick }: { label: string; value: number; color: string; soft: string; onClick?: () => void }) {
-  const active = value > 0
-  return (
-    <button
-      onClick={onClick}
-      disabled={!onClick}
-      className="ef-card p-3 sm:p-4 text-left transition-all flex items-center gap-3 disabled:cursor-default"
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-    >
-      <span
-        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold tabular-nums"
-        style={{ background: active ? soft : 'var(--surface-hover)', color: active ? color : 'var(--text-subtle)' }}
-      >
-        {value}
-      </span>
-      <span className="text-xs font-medium leading-tight min-w-0" style={{ color: 'var(--text-muted)' }}>{label}</span>
-    </button>
   )
 }
 

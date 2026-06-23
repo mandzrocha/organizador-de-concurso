@@ -164,12 +164,12 @@ export default function ConcursoDetailPage() {
       </div>
 
       {/* Abas */}
-      <div className="flex items-center gap-1 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-1 border-b overflow-x-auto no-scrollbar" style={{ borderColor: 'var(--border)' }}>
         {([['sobre', 'Sobre'], ['noticias', `Notícias${related.length ? ` (${related.length})` : ''}`]] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
-            className="text-sm px-4 py-2.5 border-b-2 -mb-px transition-colors"
+            className="text-sm px-4 py-2.5 border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0"
             style={tab === k
               ? { borderColor: 'var(--primary)', color: 'var(--primary-strong)', fontWeight: 600 }
               : { borderColor: 'transparent', color: 'var(--text-muted)' }}
