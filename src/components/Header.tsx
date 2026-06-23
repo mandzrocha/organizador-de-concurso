@@ -27,7 +27,6 @@ const PHRASES = [
   'Quem revisa hoje, lembra na hora da prova.',
   'Foco no processo: a aprovação é consequência.',
   'Você já chegou mais longe do que ontem.',
-  'Estudar cansado é o que separa os aprovados.',
   'Resolva mais uma questão. É sempre a próxima que conta.',
   'Não precisa ser perfeito, precisa ser constante.',
   'O concurso dos seus sonhos cabe na sua rotina.',
@@ -71,6 +70,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const phrase = PHRASES[dayOfYear() % PHRASES.length]
+  const firstName = name.trim().split(/\s+/)[0]
 
   useEffect(() => {
     // nome salvo localmente (fallback imediato)
@@ -212,7 +212,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <img src="/logo.svg" alt="ConcurFlow" className="h-7 w-auto" />
         </Link>
         <div className="hidden lg:block min-w-0 leading-tight">
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{greeting()}{name ? `, ${name}` : ''} 👋</p>
+          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</p>
           <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{phrase}</p>
         </div>
       </div>
