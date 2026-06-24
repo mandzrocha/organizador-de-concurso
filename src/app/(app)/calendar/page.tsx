@@ -814,8 +814,8 @@ function ScheduleWizard({ exams, subjects, generating, error, onClose, onGenerat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
-        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="w-full max-w-lg rounded-2xl border overflow-hidden flex flex-col max-h-[90vh]" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="px-5 pt-5 pb-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium inline-flex items-center gap-1.5" style={{ color: 'var(--primary)' }}><Sparkles size={12} /> Gerar cronograma com IA</p>
@@ -831,7 +831,7 @@ function ScheduleWizard({ exams, subjects, generating, error, onClose, onGenerat
           </div>
         </div>
 
-        <div className="p-5 space-y-4 min-h-[280px]">
+        <div className="p-5 space-y-4 min-h-0 overflow-y-auto flex-1">
           {step === 1 && (
             <>
               <div>
@@ -1136,7 +1136,7 @@ function ScheduleWizard({ exams, subjects, generating, error, onClose, onGenerat
           )}
         </div>
 
-        <div className="px-5 pb-5 flex gap-3">
+        <div className="px-5 pb-5 pt-3 flex gap-3 flex-shrink-0 border-t" style={{ borderColor: 'var(--border)' }}>
           {step > 1 ? (
             <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 rounded-xl text-sm border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
               Voltar
