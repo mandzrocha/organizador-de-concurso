@@ -305,7 +305,7 @@ function PomodoroMinimized({
 
   return (
     <div
-      className="fixed bottom-6 left-6 z-40 rounded-2xl border flex items-center gap-3 px-3 py-2 transition-shadow hover:shadow-lg"
+      className="fixed bottom-6 left-6 lg:left-[15.5rem] z-30 rounded-2xl border flex items-center gap-3 px-3 py-2 transition-shadow hover:shadow-lg"
       style={{ background: 'var(--surface)', borderColor: accent, boxShadow: 'var(--shadow-md)' }}
     >
       <div className="relative w-10 h-10 flex-shrink-0">
