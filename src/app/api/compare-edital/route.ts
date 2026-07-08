@@ -84,9 +84,12 @@ export async function POST(req: NextRequest) {
       model: 'gemini-flash-latest',
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 16384,
+        maxOutputTokens: 32768,
         responseMimeType: 'application/json',
-      },
+        // Desliga o "thinking" do Gemini 2.5 Flash (padrão ligado) — sem ele a
+        // comparação fica ~5x mais rápida e não estoura o limite da Vercel.
+        thinkingConfig: { thinkingBudget: 0 },
+      } as any,
     }, { timeout: 55000 })
 
     const result = await model.generateContent(`Compare o conteúdo programático de um novo edital com o edital anterior já cadastrado. O texto do novo edital foi extraído de um PDF e pode conter muito conteúdo irrelevante (Diário Oficial, despachos, regras de inscrição). Localize a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS (geralmente perto do fim, podendo estar dividida em BLOCOS — trate cada disciplina interna como matéria separada).

@@ -57,9 +57,13 @@ export async function POST(req: NextRequest) {
       model: 'gemini-flash-latest',
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 16384,
+        maxOutputTokens: 32768,
         responseMimeType: 'application/json',
-      },
+        // Gemini 2.5 Flash vem com "thinking" ligado por padrão, o que triplica
+        // o tempo (chegava a ~80s e estourava o limite da Vercel). Desligamos:
+        // a extração é uma tarefa direta e fica ~5x mais rápida (~15s).
+        thinkingConfig: { thinkingBudget: 0 },
+      } as any,
     }, {
       // Se a IA demorar demais, aborta com erro (que vira JSON) ANTES de a
       // plataforma matar a função e devolver uma página de erro não-JSON.
