@@ -39,6 +39,10 @@ Regras:
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'A IA não está configurada no servidor (GEMINI_API_KEY ausente).' }, { status: 500 })
+    }
+
     const formData = await req.formData()
     const files = formData.getAll('files') as File[]
     if (!files.length) return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
@@ -56,6 +60,10 @@ export async function POST(req: NextRequest) {
         maxOutputTokens: 32768,
         responseMimeType: 'application/json',
       },
+    }, {
+      // Se a IA demorar demais, aborta com erro (que vira JSON) ANTES de a
+      // plataforma matar a função e devolver uma página de erro não-JSON.
+      timeout: 55000,
     })
 
     const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
@@ -122,6 +130,12 @@ ${pdfText.slice(0, 400000)}`
     return NextResponse.json(parsed)
   } catch (e: any) {
     console.error('extract-edital error:', e)
-    return NextResponse.json({ error: e.message || 'Erro ao processar edital' }, { status: 500 })
+    const msg: string = e?.message || 'Erro ao processar edital'
+    if (/timeout|aborted|deadline/i.test(msg)) {
+      return NextResponse.json({
+        error: 'A IA demorou demais para ler este edital. Tente enviar só as páginas do conteúdo programático (como fotos), ou tente novamente.',
+      }, { status: 504 })
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

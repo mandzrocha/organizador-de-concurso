@@ -32,6 +32,10 @@ export interface EditalDiff {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'A IA não está configurada no servidor (GEMINI_API_KEY ausente).' }, { status: 500 })
+    }
+
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const examId = formData.get('examId') as string | null
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
         maxOutputTokens: 32768,
         responseMimeType: 'application/json',
       },
-    })
+    }, { timeout: 55000 })
 
     const result = await model.generateContent(`Compare o conteúdo programático de um novo edital com o edital anterior já cadastrado. O texto do novo edital foi extraído de um PDF e pode conter muito conteúdo irrelevante (Diário Oficial, despachos, regras de inscrição). Localize a seção de CONTEÚDO PROGRAMÁTICO / PROGRAMA DAS PROVAS (geralmente perto do fim, podendo estar dividida em BLOCOS — trate cada disciplina interna como matéria separada).
 
@@ -158,6 +162,12 @@ Importante:
     return NextResponse.json({ subjects: parsed.subjects, summary })
   } catch (e: any) {
     console.error('compare-edital error:', e)
-    return NextResponse.json({ error: e.message || 'Erro ao comparar edital' }, { status: 500 })
+    const msg: string = e?.message || 'Erro ao comparar edital'
+    if (/timeout|aborted|deadline/i.test(msg)) {
+      return NextResponse.json({
+        error: 'A IA demorou demais para comparar este edital. Tente novamente em instantes.',
+      }, { status: 504 })
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

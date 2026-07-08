@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "autoPort": true
+    },
+    {
+      "name": "deadqueue-live-panel",
+      "runtimeExecutable": "C:\\Claude Projets\\deadqueue-live-panel\\start.bat",
+      "runtimeArgs": [],
+      "port": 5000
     }
   ]
 }

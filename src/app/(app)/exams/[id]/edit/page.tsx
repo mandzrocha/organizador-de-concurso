@@ -9,6 +9,7 @@ import { isSupabaseConfigured } from '@/lib/config'
 import { unenrollExam } from '@/lib/exam-actions'
 import { getUserId } from '@/lib/auth'
 import type { SubjectDiff, EditalDiff } from '@/app/api/compare-edital/route'
+import { parseJsonResponse } from '@/lib/api'
 
 type TabKey = 'info' | 'edital'
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
@@ -140,8 +141,7 @@ export default function EditExamPage() {
       formData.append('file', pdfFile)
       formData.append('examId', id)
       const res = await fetch('/api/compare-edital', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao comparar')
+      const data = await parseJsonResponse(res)
       setDiff(data)
     } catch (e: any) {
       setError(e.message)
@@ -228,8 +228,7 @@ export default function EditExamPage() {
       const formData = new FormData()
       for (const f of files) formData.append('files', f)
       const res = await fetch('/api/extract-edital', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Falha na extração')
+      const data = await parseJsonResponse(res)
       setExtracted(data.subjects.map((s: any, i: number) => ({
         ...s,
         isShared: true,

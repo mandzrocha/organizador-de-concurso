@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getUserId } from '@/lib/auth'
 import { SUBJECT_COLORS } from '@/lib/types'
+import { parseJsonResponse } from '@/lib/api'
 
 interface ExtractedSubject {
   name: string
@@ -91,9 +92,7 @@ export default function NewExamPage() {
       }
 
       const res = await fetch('/api/extract-edital', { method: 'POST', body: formData })
-      const data = await res.json()
-
-      if (!res.ok) throw new Error(data.error || 'Falha na extração')
+      const data = await parseJsonResponse(res)
 
       setSubjects(data.subjects.map((s: any, i: number) => ({
         ...s,
